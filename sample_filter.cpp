@@ -34,6 +34,7 @@ namespace Samples::Filter
             arm_biquad_cascade_df2T_f32(&S1k, inbuf+BLOCK_SIZE-65,prewarm , 64);    
             firstRun = false;
         }
+        
         arm_biquad_cascade_df2T_f32(&S1k, inbuf,inbuf , BLOCK_SIZE);    
        
     }

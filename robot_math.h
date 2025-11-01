@@ -60,13 +60,16 @@ static inline Point2D normalize(Point2D v)
 }
 static inline Point2D toPoint2D(float angle, float dist)
 {
-    return { dist *  sin(angle), dist * cos(angle)};
+    return { dist *  sinf(angle), dist * cosf(angle)};
 }
-static unsigned short  toIndex(float angle)
+static unsigned short  toIndex(float angle,int nPoints)
 {
-	return  (unsigned short )std::round((angle/M_2PI ) * 1440)%1440;
+	return  (unsigned short )std::round((angle/M_2PI ) * nPoints)%nPoints;
 }
-
+static inline float toAngle(unsigned short index,int nPoints)
+{
+    return index* M_2PI / nPoints ;
+}
 static inline float toAngle(Point2D point)
 {
     return atan2f(point.X, point.Y);
@@ -113,13 +116,13 @@ static float standardDeviation_special(const float data[], int size) {
     // Compute variance
     float variance = 0.0;
     for (int i = 0; i < size; ++i) {
-        float diff = abs(data[i] - mean);
+        float diff = fabs(data[i] - mean);
         variance += diff * diff;
     }
     variance /= size; // or (size - 1) for sample stddev
 
     float std = std::sqrt(variance);
-    float cv = std;
+    float cv = std/mean;
 
     return 1 / ( 1+ cv );
 }

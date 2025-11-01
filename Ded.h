@@ -6,7 +6,6 @@ enum DedState
     STARTUP,
     SCAN,
     EST_TRANS,
-    ROTATING,
     EST_ROT
 };
 

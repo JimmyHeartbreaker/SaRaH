@@ -3,6 +3,7 @@
 #include "NodeServices.h"
 #define _USE_MATH_DEFINES
 #include "arduino_ext.h"
+#include <cstring>
 
 
 /// <summary>
@@ -43,7 +44,7 @@ void FindBestFlatSurface(ArcNode* nodes, unsigned short nodeCount,Wall* walls)//
         float x = t1->dist * norm_x;
         if (!previous.IsEmpty)
         {
-            float angleSize = abs(t1->angle - previous.Angle);
+            float angleSize = fabs(t1->angle - previous.Angle);
 
             float t1dist = pow(pow(x, 2) + pow(y, 2), 0.5);
             float t2dist = pow(pow(previous.Point.X, 2) + pow(previous.Point.Y, 2), 0.5);
@@ -62,13 +63,13 @@ void FindBestFlatSurface(ArcNode* nodes, unsigned short nodeCount,Wall* walls)//
                 }
                 else
                 {
-                    float cross = abs((start.Point.X - x) * (previous.Point.Y - y) - (start.Point.Y - y) * (previous.Point.X - x));
+                    float cross = fabs((start.Point.X - x) * (previous.Point.Y - y) - (start.Point.Y - y) * (previous.Point.X - x));
                     float collinear_val = fabs(cross) / sqrt(dist_sq);
                     collinear = collinear_val < 0.5;
                 }
             }
 
-            if (collinear && abs(distanceBetween - expectedDistance) < 0.01)
+            if (collinear && fabs(distanceBetween - expectedDistance) < 0.01)
             {
                 if (start.IsEmpty)
                 {
@@ -138,7 +139,7 @@ int FindClosestNode(float angle, float dist,   ArcNode* oldNodes,int searchSize)
     float best_dist = 1000000;
     
     
-    short index =  toIndex(angle );
+    short index =  toIndex(angle ,N_POINTS);
     short bestIndex =index;
     ArcNode* bestNodePtr = oldNodes + index;
     //nothing found in tree, guess at the location in the list
@@ -147,10 +148,10 @@ int FindClosestNode(float angle, float dist,   ArcNode* oldNodes,int searchSize)
     {
         Point2D bestToStart = sub(bestNodePtr->point,start);
         best_dist = mag(bestToStart);
-        // if (best_dist < 0.5)        
-        // {            
-        //     return  index;
-        // }
+        if (best_dist < 1)        
+        {            
+            return  index;
+        }
     }
            // Serial.print("best_dist");
            // Serial.println(best_dist);
@@ -233,8 +234,6 @@ void Clear(ArcNode* stack, unsigned short nodeCount)
 
 void Copy(ArcNode* src, ArcNode* dst)
 {
-    for(unsigned short i=0;i<N_POINTS;i++)
-    {
-        dst[i] = src[i];
-    }
+    std::memcpy(dst,src,sizeof(ArcNode)* N_POINTS);
+    
 }

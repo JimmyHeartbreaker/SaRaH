@@ -87,9 +87,9 @@ void setup()
   Serial3.write(0x20);
   Serial.flush();
 }
-bool move_x=false;
+bool move_x=true;
 bool move_y=false;
-bool rotate=true;
+bool rotate=false;
 float rotateAmt = 45 * M_PI / 180;
 void loop() { 
     
