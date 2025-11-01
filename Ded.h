@@ -1,24 +1,17 @@
 #pragma once
 
-#include "sl_lidar.h" 
+#include "lidar_lib.h" 
 enum DedState
 {
     STARTUP,
     SCAN,
-    WAITING,
-    MOVING
+    EST_TRANS,
+    ROTATING,
+    EST_ROT
 };
 
 
-enum MoveState
-{
-    F, //forward
-    B, //back
-    P, //port, left
-    S, //starboard, right
-    L,//rotate left, anti clockwise
-    R //rotate right, clockwise
-};
 
 
-void DataIn(sl_lidar_response_measurement_node_hq_t* nodes, size_t nodeCount);
+void RotateCompleted(float rotation);
+void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount,bool  move_x, bool move_y, bool rotate);
