@@ -31,30 +31,44 @@ static inline Point2D div(const Point2D& a, float b)
 
     return { a.X *oneOverB,a.Y*oneOverB};
 }
-
+static inline Point2D div(const Point2D& a,const Point2D& b)
+{
+    return { b.X!= 0 ? a.X /b.X : 0, b.Y!= 0 ? a.Y / b.Y : 0};
+}
 static inline Point2D div(const Point2D& a, unsigned long b)
 {
     float inv = 1.0f / static_cast<float>(b);
     return { a.X *inv,a.Y*inv};
 }
-static inline float dot(Point2D a, Point2D b)
+static inline float cross_scalar(const Point2D& a,const Point2D& b)
+{
+    return  a.X * b.Y - a.Y * b.X;
+}
+
+
+
+static inline float dot(const Point2D& a,const Point2D& b)
 {
     return a.X * b.X + a.Y * b.Y;
 }
-static inline float det(Point2D a, Point2D b)
+static inline float det(const Point2D& a,const Point2D& b)
 {
     return a.X * b.Y - a.Y * b.X;
 }
-static inline float angleBetween(Point2D a, Point2D b)
+static inline float angleBetween(const Point2D& a,const Point2D& b)
 {
     return atan2(det(a,b),dot(a,b));
 }
 
-static inline Point2D normal(Point2D v)
+static inline Point2D normal(const Point2D& v)
 {
     return {v.Y,-v.X};
 }
-static inline Point2D normalize(Point2D v)
+static inline Point2D normal_ccw(const Point2D& v)
+{
+    return {-v.Y,v.X};
+}
+static inline Point2D normalize(const Point2D& v)
 {
     return div(v,mag(v));
 }
@@ -70,7 +84,7 @@ static inline float toAngle(unsigned short index,int nPoints)
 {
     return index* M_2PI / nPoints ;
 }
-static inline float toAngle(Point2D point)
+static inline float toAngle(const Point2D& point)
 {
     return atan2f(point.X, point.Y);
 }

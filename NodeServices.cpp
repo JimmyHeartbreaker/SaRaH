@@ -65,7 +65,7 @@ void FindBestFlatSurface(ArcNode* nodes, unsigned short nodeCount,Wall* walls)//
                 {
                     float cross = fabs((start.Point.X - x) * (previous.Point.Y - y) - (start.Point.Y - y) * (previous.Point.X - x));
                     float collinear_val = fabs(cross) / sqrt(dist_sq);
-                    collinear = collinear_val < 0.5;
+                    collinear = collinear_val < 0.25;
                 }
             }
 
@@ -144,7 +144,7 @@ int FindClosestNode(float angle, float dist,   ArcNode* oldNodes,int searchSize)
     ArcNode* bestNodePtr = oldNodes + index;
     //nothing found in tree, guess at the location in the list
   
-    if (bestNodePtr->angle  )
+    if (bestNodePtr->dist  )
     {
         Point2D bestToStart = sub(bestNodePtr->point,start);
         best_dist = mag(bestToStart);
@@ -208,10 +208,31 @@ void PrintNodes(ArcNode* nodes)
 {
     for(int i =0;i<N_POINTS;i++)
     {
-        //printf("%i,%.06f,%.06f",i,nodes[i].dist,nodes[i].angle);
+        //serialPrintf("%i,%.06f,%.06f",i,nodes[i].dist,nodes[i].angle);
     }
 }
-
+void InterpolateMissingNodes(ArcNode* nodes)
+{
+    const float ANG_STEP = M_2PI / N_POINTS;
+    for(int i=0; i<N_POINTS; ++i){
+    if(nodes[i].dist <= 0){
+        nodes[i].angle = i*ANG_STEP;
+        nodes[i].dist = (nodes[i-1].dist + nodes[(i+1)%N_POINTS].dist)/2.0f;
+    }
+}
+}
+int CountZeros(ArcNode* nodes)
+{
+    int zeros=0;
+    for(int i =0;i<N_POINTS;i++)
+    {
+        if(!nodes[i].dist)
+        {
+            zeros++;
+        }
+    }
+    return zeros;
+}
 void CalcPoints(ArcNode* nodes)
 {
     for (int i = 0; i < N_POINTS; i++)

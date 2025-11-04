@@ -8,7 +8,7 @@
 #include "arduino_ext.h"
 using namespace std;
 
-#define SCAN_COUNT 20
+#define SCAN_COUNT 30
 
 DedState dedState = STARTUP;
 
@@ -24,57 +24,11 @@ uint8_t dataCount;
 float currentRange = 0;
 
 Wall prevWalls[3];
-Wall walls[3];
 
 
 float velocity=0;
 float angular_velocity = 0;
-/// <summary>
-/// scan and insert data
-/// </summary>
-/// <param name="nodes"></param>
-/// <param name="nodeCount"></param>
-float read_scan(LidarScanNormalMeasureRaw* nodes,ArcNode* dst, unsigned short nodeCount,float new_weight=0.5f,bool calculatePoints=false)
-{
-//	printf("new_weight:%.2f",new_weight);
-	float totalDiff=0;
-	for (int i = 0; i < nodeCount; i++)
-	{
-		float angle = (nodes[i].angle_z_q6 / 128.0f) * M_PI_F / 180.0f;
-		while(angle>= M_2PI )
-		{
-			angle -= M_2PI;
-		}
-		float dist = nodes[i].dist_mm_q2 / 4.0f ;	
-		dist = pow(dist, (1- (0.06*max(0,150 - dist))/150)) * 1.01;
-		if (dist > 0  )
-		{
-		
-			unsigned short index =toIndex(angle ,N_POINTS);
-			if(!dst[index].dist)
-			{
-				dst[index].angle =   (index / (float)N_POINTS * M_2PI);
-				dst[index].dist = dist;
-				if(calculatePoints)
-				{
-					dst[index].point = toPoint2D(dst[index].angle,dist);
-				}
-			}
-			else
-			{
-				totalDiff += fabs(dst[index].dist- dist);
-				
-				dst[index].dist = (dst[index].dist * (1-new_weight)+ dist * new_weight);
-				if(calculatePoints)
-				{
-					dst[index].point = toPoint2D(dst[index].angle,	dst[index].dist);
-				}
 
-			}		
-		}
-	}
-	return totalDiff;
-}
 
 
 float totalScanError=0;
@@ -82,46 +36,35 @@ float totalScanError=0;
 
 void runFilter(ArcNode* src,ArcNode* dst)
 {
+	//printf("f start");
 	float samples[N_POINTS];
 	for(unsigned short i =0;i<N_POINTS;i++)
 	{
-		samples[i] = sqrt(src[i].dist)/30;//sqrt because distant objects have more error	
+		samples[i] = src[i].dist;//sqrt(src[i].dist)/30;//sqrt because distant objects have more error	
+	//	printf("%.8f",src[i].dist);
 	}
 	Samples::Filter::FilterSamples(samples);
 
 	for(unsigned short i =0;i<N_POINTS;i++)
 	{	
-		dst[i].angle = src[i].angle;					
-		dst[i].dist = pow(samples[i]*30,2);	
-		dst[i].point = toPoint2D(dst[i].angle,dst[i].dist );
-		
+		//if(src[i].angle)
+	//	{
+			dst[i].angle = src[i].angle;					
+			dst[i].dist = samples[i];//pow(samples[i]*30,2);	
+			dst[i].point = toPoint2D(dst[i].angle,dst[i].dist );
+	//	}
+		//printf("%.8f",dst[i].dist);
 	}
 }
-void FindWalls()
+void FindWalls(ArcNode* nodes,Wall* walls)
 {
-	prevWalls[0] = walls[0];
-	prevWalls[1] = walls[1];
-	prevWalls[2] = walls[2];
 	
-	FindBestFlatSurface(nodes_cur, N_POINTS,walls);	
+	
+	FindBestFlatSurface(nodes, N_POINTS,walls);	
 
-	// for(int i=0;i<3;i++)
-	// {
-	// 	float wallDist = (walls[i].End.Dist * walls[i].End.Angle + walls[i].Start.Dist * walls[i].Start.Angle) / (walls[i].End.Angle + walls[i].Start.Angle);
-	// 	if(isnan(wallDist))
-	// 	{
-	// 		walls[i] = {};
-	// 	}
-	// 	currentRange = max(currentRange, wallDist * 2);
-	// 	// printf("[Wall Start] X:%.2f Y:%.2f Angle:%.2f",walls[i].Start.Point.X,walls[i].Start.Point.Y,walls[i].Start.Angle*180/M_PI);
-	// 	// printf("[Wall End] X:%.2f Y:%.2f Angle:%.2f",walls[i].End.Point.X,walls[i].End.Point.Y,walls[i].End.Angle*180/M_PI);
-	// 	// printf("[Wall Dist] %.2f",wallDist);
-	// 	// printf("[Wall Length] %.2f",mag(sub(walls[i].Start.Point,walls[i].End.Point) ));
-	// }
 }
 void getFilteredSnapshot(ArcNode* nodes)
 {
-	//Copy(nodes_cur,nodes);
 	runFilter(nodes_cur,nodes);
 }
 unsigned long prev_millis=0;
@@ -129,7 +72,18 @@ unsigned long prev_millis=0;
 bool goFromScanningToEstimating()
 {
 	printf("> TOTAL SCAN NOISE:%.2f",totalScanError);
-	// if(totalScanError>300000)
+	int zeros = CountZeros(nodes_cur);
+	if(zeros > 130)
+	{
+		printf("> INCOMPETE SCAN DETECTED, %.i ZEROS, CONTINUEING-SCAN",zeros);	
+		return false;
+	}
+	else if(zeros>0)
+	{		
+		printf("> PATCHING HOLES",zeros);	
+		InterpolateMissingNodes(nodes_cur);
+	}
+	// if(totalScanError>50000)
 	// {				
 	// 	printf("> SIGNIFICANT MOVEMENT DETECTED, RE-SCANNING");	
 	// 	Clear(nodes_cur,N_POINTS);
@@ -138,13 +92,15 @@ bool goFromScanningToEstimating()
 	// 	totalScanError = 0;
 	// 	return false;
 	// }
+	#ifndef TESTING
 	Serial.println("> ENVIRONMENT ANALYSIS COMPLETE");
-	
+	#endif
 	
 	dataCount = 0;
 	
 	getFilteredSnapshot(nodes_ref);
-	
+	FindWalls(nodes_ref,prevWalls);
+	PrintNodes(nodes_ref);
 	//PrintNodes(nodes_cur);
 	dedState = EST_TRANS;
 		
@@ -167,79 +123,154 @@ void RotateCompleted(float rotate)
 	dedState = EST_ROT;
 	totalScanError = 0;
 	Clear(nodes_cur,N_POINTS);
+	#ifndef TESTING
   	printf("> ESTIMATING ROTATION"); 
+	#endif
 
 }
 
 
+bool portFirst=true;
+bool fwdFirst=true;
+void SetPos(const Point2D& p)
+{
+	avg_pos = p;
+}
 
+void RefUpdate()
+{	
+	getFilteredSnapshot(nodes_ref);
+	FindWalls(nodes_ref,prevWalls);
+	serialPrintf("ref updated!");
+}
 void ResolveXY(ArcNode* nodes,float current_step_weight,bool move_x, bool move_y,unsigned long dt )
 {
 	if(!move_x && !move_y)
 		return;
 
-	float halfAngle = MOVE_SCAN_ANGLE;
-	float port = M_PIF +  M_PIF/2.0f;
-	float starboard = M_PIF / 2.0f;
-	float back = M_PIF;
+	const float halfAngle = MOVE_SCAN_ANGLE/2;;
+	const float port = M_PIF +  M_PIF/2.0f;
+	const float starboard = M_PIF / 2.0f;
+	const float back = M_PIF;
 	
-	float power =2;
+	const float power =2;
 	Point2D found={0};
 	
 	if(move_x)
 	{
-		float portStd;
-		float sbStd;
+		float port_score=10000;
+		float sb_score=10000;
 		Point2D pos_port = avg_pos;
 		float angle_port = avg_yaw;
 		Point2D pos_sb = avg_pos;
 		float angle_sb = avg_yaw;
-		bool portR = find_x(nodes,nodes_ref,pos_port,angle_port,port-halfAngle/2,port+halfAngle/2,portStd,{-1,0});
-		bool sbR =  find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle/2,starboard+halfAngle/2,sbStd,{1,0});
-		 if(!portR || isnan(pos_port.X) )
-		{
-		 	found = pos_sb;
-		 }
-		 else if(!sbR || isnan(pos_sb.X) )
-		 {
-			found = pos_port;
-			avg_yaw = angle_port;
-		 }
-		 else
-		 {
-		 	portStd = pow(portStd,power);
-		 	sbStd =pow( sbStd,power);
-		//	printf("port std:%.6f",portStd);
-		//	printf("sb std:%.6f",sbStd);
-			found = div(add(mul(pos_port ,(portStd)),mul(pos_sb ,sbStd )),portStd + sbStd);
-			avg_yaw =  (sbStd * angle_sb +  portStd * angle_port )/ (portStd + sbStd);
+		bool portR=false;
+		bool sbR=false;
+		if(portFirst)
+		{	
+			port:
+			
+			portR = find_x(nodes,nodes_ref,pos_port,angle_port,port-halfAngle,port+halfAngle,port_score,{-1,0});
+			if(portR && abs(port_score) < 1)
+			{			
+				found = pos_port;
+				avg_yaw = angle_port;		
+			}
+			else if(portFirst)//sb didnt run yet
+				goto sb;
 		}
+		else
+		{
+			sb:
+			sbR = find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle,starboard+halfAngle,sb_score,{1,0});
+			if(sbR && sb_score < 1)
+			{			
+				found = pos_sb;
+				avg_yaw = angle_sb;	
+			}
+			else if(!portFirst)//port didnt run yet
+				goto port;
+		}	
+		
+		printf("port_score:%.6f, sb_score:%.6f",port_score,sb_score);	
+		printf("port:%.6f, sb:%.6f",pos_port.X,pos_sb.X);			
+		if(!(sbR ^ portR) )//we got both or got neither, must have dropped through both and need to choose
+		{
+			if(fabs(sb_score - port_score) / (fmax(sb_score, port_score) + 1e-6f) < 0.15f)
+			{
+				found = div(add(mul(pos_port ,sb_score),mul(pos_sb ,port_score  )),port_score + sb_score);
+				avg_yaw =  (sb_score * angle_port +  port_score * angle_sb  )/ (port_score + sb_score);
+			}
+			else if(sb_score < port_score)
+			{
+				found = pos_sb;
+				avg_yaw = angle_sb;
+				portFirst = false;
+			}
+			else
+			{
+				found = pos_port;
+				avg_yaw = angle_port;				
+				portFirst = true;
+			}
+		}
+		
 	}
 	else if(move_y)
 	{
-		float fwdStd;
-		float bckStd;
+		float fwd_score=0;
+		float bck_score=0;
 		Point2D pos_fwd = avg_pos;
 		float angle_fwd = avg_yaw;
 		Point2D pos_bck = avg_pos;
 		float angle_bck = avg_yaw;
-		bool fwdR = find_y(nodes,nodes_ref,pos_fwd,angle_fwd,port-halfAngle/2,port+halfAngle/2,fwdStd,{0,1});
-		bool bckR = find_y(nodes,nodes_ref,pos_bck,angle_bck, starboard-halfAngle/2,starboard+halfAngle/2,bckStd,{0,-1});
-		 if(!fwdR || isnan(pos_fwd.X) )
-		 {
-		 	found = pos_bck;
-		 }
-		 else if(!bckR || isnan(pos_bck.X) )
-		 {
-			found = pos_fwd;
-		 }
-		 else
-		 {
-		 	fwdStd = pow(fwdStd,power);
-		 	bckStd =pow( bckStd,power);
+		bool portR=false;
+		bool sbR=false;
+		if(fwdFirst)
+		{	
+			fwd:
 			
-			found = div(add(mul(pos_fwd ,(fwdStd)),mul(pos_bck ,bckStd )),fwdStd + bckStd);
-			avg_yaw =  (bckStd * angle_bck +  fwdStd * angle_fwd )/ (fwdStd + bckStd);
+			portR = find_y(nodes,nodes_ref,pos_fwd,angle_fwd,port-halfAngle,port+halfAngle,fwd_score,{-1,0});
+			if(portR && fwd_score < 0.5)
+			{			
+				found = pos_fwd;
+				avg_yaw = angle_fwd;		
+			}
+			else if(fwdFirst)//sb didnt run yet
+				goto bck;
+		}
+		else
+		{
+			bck:
+			sbR =  find_y(nodes,nodes_ref,pos_bck,angle_bck, starboard-halfAngle,starboard+halfAngle,bck_score,{1,0});
+			if(sbR && bck_score < 0.5)
+			{			
+				found = pos_bck;
+				avg_yaw = angle_bck;	
+			}
+			else if(!fwdFirst)//port didnt run yet
+				goto fwd;
+		}	
+					
+		if(sbR && portR )//we got both, must have dropped through both and need to choose
+		{
+			if(fabs(bck_score - fwd_score) / (fmax(bck_score, fwd_score) + 1e-6f) < 0.15f)
+			{
+				found = div(add(mul(pos_fwd ,bck_score),mul(pos_bck ,fwd_score  )),fwd_score + bck_score);
+				avg_yaw =  (bck_score * angle_fwd +  fwd_score * angle_bck  )/ (fwd_score + bck_score);
+			}
+			else if(bck_score < fwd_score)
+			{
+				found = pos_bck;
+				avg_yaw = angle_bck;
+				fwdFirst = false;
+			}
+			else
+			{
+				found = pos_fwd;
+				avg_yaw = angle_fwd;				
+				fwdFirst = true;
+			}
 		}
 	
 	}
@@ -253,11 +284,11 @@ void ResolveXY(ArcNode* nodes,float current_step_weight,bool move_x, bool move_y
 	printf("X:%.2f, Y:%.2f, velocity:%.2f",avg_pos.X,avg_pos.Y,velocity);
 }
 
-void ResolveRotation(ArcNode* nodes, float current_step_weight, bool rotate, unsigned long dt)
+void ResolveRotation(ArcNode* nodes,Wall* walls, float current_step_weight, bool rotate, unsigned long dt)
 {
+
 	if(!rotate)
 		return;
-
 	float total_found=0;
 	int total_match=0;
 	float wrongAvg = 0;
@@ -265,14 +296,14 @@ void ResolveRotation(ArcNode* nodes, float current_step_weight, bool rotate, uns
 	float prevWallAvg = avg_yaw;
 	float results[3];
 	
-	for(int i =0;i<3;i++)
+	for(int i =2;i<3;i++)
 	{
 		Wall wall = walls[i];
 		if(wall.Start.Dist)
 		{
+			
 			float left = wall.Start.Angle;
 			float right = wall.End.Angle;
-			
 			if(angleDiffFast(left, right ) > 0)
 			{
 				left = right;
@@ -285,6 +316,8 @@ void ResolveRotation(ArcNode* nodes, float current_step_weight, bool rotate, uns
 			while(right<0)right+=M_2PI;
 			while(right>=M_2PI)right-=M_2PI;
 			float dist = (wall.End.Dist * wall.End.Angle + wall.Start.Dist * wall.Start.Angle) / (wall.End.Angle +wall.Start.Angle);
+			
+			printf("left:%.2f,right:%.2f, dist:%.6f",left*180/M_PI,right*180/M_PI,dist);
 			float maxRange = dist*1.5;
 			float found=0;
 			if( find_yaw(nodes,nodes_ref,left-ROT_SCAN_ANGLE/2,right+ROT_SCAN_ANGLE/2,prevWallAvg,maxRange,found) && !isnan(found))
@@ -320,6 +353,7 @@ void ResolveRotation(ArcNode* nodes, float current_step_weight, bool rotate, uns
 			return;
 		angular_velocity = new_angular_velocity;
 		avg_yaw =new_avg_yaw;	
+		printf("YAW:%.6f",avg_yaw*180/M_PI);
 		
 	}
 	else
@@ -336,9 +370,12 @@ float durationStopped =0;
 
 void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount,bool  move_x, bool move_y, bool rotate)
 {	
+	unsigned long  dt= 1;
+	#ifndef TESTING
 	unsigned long millis_now = millis();
-	unsigned long  dt =  millis_now - prev_millis;
+	dt =  millis_now - prev_millis;
 	prev_millis = millis_now;
+	#endif
 	totalScanError += read_scan(nodes, nodes_cur, nodeCount);
 
 	switch (dedState)
@@ -375,7 +412,7 @@ void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount,bool  mov
 	case EST_TRANS:
 	{		
 		ArcNode nodes_now[N_POINTS];
-		float current_step_weight = min(0.95,velocity*100+0.2);
+		float current_step_weight = std::fmin(0.95,velocity*100+0.2);
 		getFilteredSnapshot(nodes_now);
 
 		if(rotate)
@@ -401,12 +438,13 @@ void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount,bool  mov
 	case EST_ROT:
 	{	
 		ArcNode nodes_now[N_POINTS];
+		Wall walls[3];
 		float current_angular_step_weight =0.5;//min(0.95,angular_velocity*100+0.5);	
 		getFilteredSnapshot(nodes_now);		
-		FindWalls();
+		FindWalls(nodes_now,walls);
 		//we shouldnt be moving when doing this		
 				
-		ResolveRotation(nodes_now,current_angular_step_weight,rotate,dt);
+		ResolveRotation(nodes_now,walls,current_angular_step_weight,rotate,dt);
 		// if(angular_velocity == 0)
 		// {
 		// 	durationStopped += dt;

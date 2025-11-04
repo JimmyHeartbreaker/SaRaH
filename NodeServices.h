@@ -4,7 +4,7 @@
 
 #include "arduino_ext.h"
 #include "robot_math.h"
-#define N_POINTS  1440
+#define N_POINTS  720
 #define RESOLUTION (M_2PI/N_POINTS) //rad
 
 
@@ -40,4 +40,6 @@ void PrintNodes(ArcNode* nodes);
 void Copy(ArcNode* src, ArcNode* dst);
 void CalcPoints(ArcNode* nodes);
 
+void InterpolateMissingNodes(ArcNode* nodes);
+int CountZeros(ArcNode* nodes);
 #endif

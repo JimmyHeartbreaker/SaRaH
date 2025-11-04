@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "stm32h7xx_hal_sarah.h"
 #include <cmath>
+#include "pid_controller.h"
 #include "lidar_lib.h"
 #include "Ded.h"
 #include "arduino_ext.h"
@@ -90,7 +91,7 @@ void setup()
 bool move_x=true;
 bool move_y=false;
 bool rotate=false;
-float rotateAmt = 45 * M_PI / 180;
+float rotateAmt = 0 * M_PI / 180;
 void loop() { 
     
     
@@ -149,19 +150,34 @@ void loop() {
      rotateAmt = 0;
     break;
     case 'E':
-    rotateAmt =90 * M_PI / 180;
+    rotateAmt =45 * M_PI / 180;
     rotate = true;
      move_y = false;
      move_x = false;
     break;
     case 'Q':
-    rotateAmt =-90 * M_PI / 180;
+    rotateAmt =-45 * M_PI / 180;
     rotate = true;
      move_y = false;
      move_x = false;
     break;
     case 'F':
       RotateCompleted(rotateAmt);
+      break;
+    case 'r':
+      SetPos({-100,0});
+      break;
+      
+    case 't':
+      SetPos({100,0});
+      break;      
+    case 'o':
+      SetPos({0,0});
+      break;
+         
+    case 'p':
+      RefUpdate();
+      break;
     default:
       break;
     }

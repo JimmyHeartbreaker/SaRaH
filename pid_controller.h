@@ -4,10 +4,16 @@
 #include "NodeServices.h"
 #include "arduino_ext.h"
 
-#define MOVE_SCAN_ANGLE (20* (M_PI_F/180))
-#define ROT_SCAN_ANGLE (180*M_PI_F/180)
+#define MOVE_SCAN_ANGLE (15* (M_PI_F/180))
+#define ROT_SCAN_ANGLE (90*M_PI_F/180)
 #define M_2PI (M_PI_F*2)
-
+#define RESOLUTION (M_2PI/N_POINTS) //rad
+typedef struct LidarScanNormalMeasureRaw
+{
+    unsigned char    quality;
+    unsigned short   angle_z_q6;
+    unsigned short   dist_mm_q2;
+} __attribute__((packed)) LidarScanNormalMeasureRaw;
 struct pid_state
 {
 	float kp;
@@ -30,6 +36,15 @@ inline float angleDiffFast(float a, float b) {
 bool find_y(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& guess,float& angle,float left, float right,float& std,Point2D heading);
 bool find_x(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& guess,float& angle,float left, float right,float& std,Point2D heading);
 bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old,float left, float right, float assumed_yaw,float maxRange, float& outGuess);
+float read_scan(
+    LidarScanNormalMeasureRaw* nodes,
+    ArcNode* dst,
+    unsigned short nodeCount,
+    float new_weight = 0.5f,
+    bool calculatePoints = false);
 
-Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,Point2D guess,float angleGuess,float& std,float& angle_diff,Point2D heading);
+Point2D sum_difference_rotation(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,float angleGuess,float& angle_diff, int searchRange);
+float sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,float angleGuess,float maxRange);
+Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,Point2D guess,float angleGuess,float& std,float& angle_diff,Point2D heading, int searchRange=3);
+
 #endif

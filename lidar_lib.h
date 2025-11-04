@@ -3,12 +3,7 @@
 
 #include <Arduino.h>
 
-typedef struct LidarScanNormalMeasureRaw
-{
-    unsigned char    quality;
-    unsigned short   angle_z_q6;
-    unsigned short   dist_mm_q2;
-} __attribute__((packed)) LidarScanNormalMeasureRaw;
+
 
 
 
