@@ -5,7 +5,7 @@
 #include <vector>
 #include <cmath>
 
-#include "..\pid_controller.h"
+#include "pid_controller.h"
 #define DEG2RAD(x) ((x) * M_PI / 180.0f)
 
 #include <vector>

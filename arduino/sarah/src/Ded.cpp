@@ -1,11 +1,11 @@
 
-#include "ded.h"
-#include "NodeServices.h"
+#include "..\headers\Ded.h"
+#include "..\headers\NodeServices.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include "sample_filter.h"
-#include "pid_controller.h"
-#include "arduino_ext.h"
+#include "..\headers\sample_filter.h"
+#include "..\headers\pid_controller.h"
+#include "..\headers\arduino_ext.h"
 using namespace std;
 
 #define SCAN_COUNT 30

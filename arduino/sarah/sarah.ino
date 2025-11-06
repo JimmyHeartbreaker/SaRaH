@@ -1,10 +1,10 @@
 #include <Arduino.h>
-#include "stm32h7xx_hal_sarah.h"
+#include "headers\stm32h7xx_hal_sarah.h"
 #include <cmath>
-#include "pid_controller.h"
-#include "lidar_lib.h"
-#include "Ded.h"
-#include "arduino_ext.h"
+#include "headers\pid_controller.h"
+#include "headers\lidar_lib.h"
+#include "headers\Ded.h"
+#include "headers\arduino_ext.h"
 // -------- CONFIG --------
 #define RX_BUF_SIZE 8000
 #define HEADER_SIZE 7

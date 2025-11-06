@@ -2,8 +2,8 @@
 #include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_uart_ex.h"
 #include "stm32h7xx_hal_dma.h"
-#include "stm32h7xx_hal_sarah.h"
-#include "arduino_ext.h"
+#include "..\headers\stm32h7xx_hal_sarah.h"
+#include "..\headers\arduino_ext.h"
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
