@@ -101,7 +101,6 @@ bool goFromScanningToEstimating()
 	getFilteredSnapshot(nodes_ref);
 	FindWalls(nodes_ref,prevWalls);
 	PrintNodes(nodes_ref);
-	//PrintNodes(nodes_cur);
 	dedState = EST_TRANS;
 		
 	//drop to RECON
@@ -135,6 +134,7 @@ bool fwdFirst=true;
 void SetPos(const Point2D& p)
 {
 	avg_pos = p;
+	avg_yaw = 0 * M_PI/180;
 }
 
 void RefUpdate()
@@ -182,7 +182,7 @@ void ResolveXY(ArcNode* nodes,float current_step_weight,bool move_x, bool move_y
 		else
 		{
 			sb:
-			sbR = find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle,starboard+halfAngle,sb_score,{1,0});
+			sbR = false;//find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle,starboard+halfAngle,sb_score,{1,0});
 			if(sbR && sb_score < 1)
 			{			
 				found = pos_sb;
@@ -192,8 +192,8 @@ void ResolveXY(ArcNode* nodes,float current_step_weight,bool move_x, bool move_y
 				goto port;
 		}	
 		
-		printf("port_score:%.6f, sb_score:%.6f",port_score,sb_score);	
-		printf("port:%.6f, sb:%.6f",pos_port.X,pos_sb.X);			
+	//	printf("port_score:%.6f, sb_score:%.6f",port_score,sb_score);	
+	//	printf("port:%.6f, sb:%.6f",pos_port.X,pos_sb.X);			
 		if(!(sbR ^ portR) )//we got both or got neither, must have dropped through both and need to choose
 		{
 			if(fabs(sb_score - port_score) / (fmax(sb_score, port_score) + 1e-6f) < 0.15f)
@@ -296,7 +296,7 @@ void ResolveRotation(ArcNode* nodes,Wall* walls, float current_step_weight, bool
 	float prevWallAvg = avg_yaw;
 	float results[3];
 	
-	for(int i =2;i<3;i++)
+	for(int i =0;i<3;i++)
 	{
 		Wall wall = walls[i];
 		if(wall.Start.Dist)
@@ -317,23 +317,25 @@ void ResolveRotation(ArcNode* nodes,Wall* walls, float current_step_weight, bool
 			while(right>=M_2PI)right-=M_2PI;
 			float dist = (wall.End.Dist * wall.End.Angle + wall.Start.Dist * wall.Start.Angle) / (wall.End.Angle +wall.Start.Angle);
 			
-			printf("left:%.2f,right:%.2f, dist:%.6f",left*180/M_PI,right*180/M_PI,dist);
+			//printf("left:%.2f,right:%.2f, dist:%.6f, length:%.6f",left*180/M_PI,right*180/M_PI,dist,mag(sub(wall.Start.Point,wall.End.Point)));
 			float maxRange = dist*1.5;
 			float found=0;
-			if( find_yaw(nodes,nodes_ref,left-ROT_SCAN_ANGLE/2,right+ROT_SCAN_ANGLE/2,prevWallAvg,maxRange,found) && !isnan(found))
-			{
+			//if( 
+				find_yaw(nodes,nodes_ref,left-ROT_SCAN_ANGLE/2,right+ROT_SCAN_ANGLE/2,prevWallAvg,maxRange,found);// && !isnan(found)
+			//)
+			//{
 				results[total_match] = found;
 				prevWallAvg = found;
 				total_found += found;
 				total_match++;
-			}
-			else
-			{
-				//prevWallAvg = found;
-				wrongAvg += found;
-				wrongMatchCount++;
-				//avg_yaw = (found + avg_yaw)/2;
-			}
+			// }
+			// else
+			// {
+			// 	//prevWallAvg = found;
+			// 	wrongAvg += found;
+			// 	wrongMatchCount++;
+			// 	//avg_yaw = (found + avg_yaw)/2;
+			// }
 		}
 	}
 	if(total_match !=0)

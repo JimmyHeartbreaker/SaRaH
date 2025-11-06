@@ -2,7 +2,7 @@
 
 namespace Samples::Filter
 {
-    #define BLOCK_SIZE     720  
+    #define BLOCK_SIZE     1440  
     #define NUM_STAGE_IIR  3
     #define NUM_ORDER_IIR  (NUM_STAGE_IIR * 2)
     #define NUM_STD_COEFFS 2 // b0, b1, b2, a1, a2

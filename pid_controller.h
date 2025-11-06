@@ -4,8 +4,8 @@
 #include "NodeServices.h"
 #include "arduino_ext.h"
 
-#define MOVE_SCAN_ANGLE (15* (M_PI_F/180))
-#define ROT_SCAN_ANGLE (90*M_PI_F/180)
+#define MOVE_SCAN_ANGLE (20* (M_PI_F/180))
+#define ROT_SCAN_ANGLE (180*M_PI_F/180)
 #define M_2PI (M_PI_F*2)
 #define RESOLUTION (M_2PI/N_POINTS) //rad
 typedef struct LidarScanNormalMeasureRaw

@@ -65,7 +65,7 @@ void FindBestFlatSurface(ArcNode* nodes, unsigned short nodeCount,Wall* walls)//
                 {
                     float cross = fabs((start.Point.X - x) * (previous.Point.Y - y) - (start.Point.Y - y) * (previous.Point.X - x));
                     float collinear_val = fabs(cross) / sqrt(dist_sq);
-                    collinear = collinear_val < 0.25;
+                    collinear = collinear_val < 0.5;
                 }
             }
 
@@ -208,7 +208,7 @@ void PrintNodes(ArcNode* nodes)
 {
     for(int i =0;i<N_POINTS;i++)
     {
-        //serialPrintf("%i,%.06f,%.06f",i,nodes[i].dist,nodes[i].angle);
+       // serialPrintf("%i,%.06f,%.06f",i,nodes[i].dist,nodes[i].angle);
     }
 }
 void InterpolateMissingNodes(ArcNode* nodes)

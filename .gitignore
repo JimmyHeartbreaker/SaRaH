@@ -5,3 +5,6 @@
 /robot_math.exe
 /tests/tests.exe
 /tests/difference_test.exe
+*.csv
+*.exe
+*.exe

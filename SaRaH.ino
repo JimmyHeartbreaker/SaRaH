@@ -132,6 +132,7 @@ void loop() {
   if(Serial.available())
   {
     char c = Serial.read();
+    
     switch (c)
     {
     case 'W':
@@ -165,11 +166,11 @@ void loop() {
       RotateCompleted(rotateAmt);
       break;
     case 'r':
-      SetPos({-100,0});
+      SetPos({-150,0});
       break;
       
     case 't':
-      SetPos({100,0});
+      SetPos({150,0});
       break;      
     case 'o':
       SetPos({0,0});

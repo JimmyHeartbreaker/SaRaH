@@ -78,7 +78,7 @@ static inline Point2D toPoint2D(float angle, float dist)
 }
 static unsigned short  toIndex(float angle,int nPoints)
 {
-	return  (unsigned short )std::round((angle/M_2PI ) * nPoints)%nPoints;
+	return  (unsigned short )(std::round((angle/M_2PI ) * nPoints) + nPoints )%nPoints;
 }
 static inline float toAngle(unsigned short index,int nPoints)
 {
