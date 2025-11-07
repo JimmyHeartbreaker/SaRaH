@@ -6,6 +6,7 @@
 #include "..\headers\sample_filter.h"
 #include "..\headers\pid_controller.h"
 #include "..\headers\arduino_ext.h"
+#include <Arduino.h>
 using namespace std;
 
 #define SCAN_COUNT 30
@@ -13,7 +14,14 @@ using namespace std;
 DedState dedState = STARTUP;
 
 
-ArcNode nodes_ref[N_POINTS]={0};
+__attribute__((section(".ccmram")))  ArcNode nodes_ref[N_POINTS];
+
+ArcNode* GetRefNodes()
+{
+	return nodes_ref;
+}
+
+
 ArcNode nodes_cur[N_POINTS]={0};
 
 uint8_t dataCount;
@@ -67,6 +75,11 @@ void getFilteredSnapshot(ArcNode* nodes)
 {
 	runFilter(nodes_cur,nodes);
 }
+void GetNewNodes(ArcNode* dst )
+{
+	getFilteredSnapshot(dst);
+}
+
 unsigned long prev_millis=0;
 
 bool goFromScanningToEstimating()
@@ -136,7 +149,15 @@ void SetPos(const Point2D& p)
 	avg_pos = p;
 	avg_yaw = 0 * M_PI/180;
 }
+Point2D GetPos()
+{
+	return avg_pos;
+}
 
+float GetYaw()
+{
+	return avg_yaw;
+}
 void RefUpdate()
 {	
 	getFilteredSnapshot(nodes_ref);
@@ -166,54 +187,38 @@ void ResolveXY(ArcNode* nodes,float current_step_weight,bool move_x, bool move_y
 		float angle_sb = avg_yaw;
 		bool portR=false;
 		bool sbR=false;
-		if(portFirst)
-		{	
-			port:
-			
-			portR = find_x(nodes,nodes_ref,pos_port,angle_port,port-halfAngle,port+halfAngle,port_score,{-1,0});
-			if(portR && abs(port_score) < 1)
-			{			
-				found = pos_port;
-				avg_yaw = angle_port;		
-			}
-			else if(portFirst)//sb didnt run yet
-				goto sb;
-		}
-		else
-		{
-			sb:
-			sbR = false;//find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle,starboard+halfAngle,sb_score,{1,0});
-			if(sbR && sb_score < 1)
-			{			
-				found = pos_sb;
-				avg_yaw = angle_sb;	
-			}
-			else if(!portFirst)//port didnt run yet
-				goto port;
-		}	
 		
-	//	printf("port_score:%.6f, sb_score:%.6f",port_score,sb_score);	
+		sbR = find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle,starboard+halfAngle,sb_score,{1,0});
+		//pos_sb = sb;
+		//angle_sb = sb_yaw;
+		//if(sbR )
+	//	{			
+			found = pos_sb;
+			avg_yaw = angle_sb;	
+		//}
+			
+		//printf("port_score:%.6f, sb_score:%.6f",port_score,sb_score);	
 	//	printf("port:%.6f, sb:%.6f",pos_port.X,pos_sb.X);			
-		if(!(sbR ^ portR) )//we got both or got neither, must have dropped through both and need to choose
-		{
-			if(fabs(sb_score - port_score) / (fmax(sb_score, port_score) + 1e-6f) < 0.15f)
-			{
-				found = div(add(mul(pos_port ,sb_score),mul(pos_sb ,port_score  )),port_score + sb_score);
-				avg_yaw =  (sb_score * angle_port +  port_score * angle_sb  )/ (port_score + sb_score);
-			}
-			else if(sb_score < port_score)
-			{
-				found = pos_sb;
-				avg_yaw = angle_sb;
-				portFirst = false;
-			}
-			else
-			{
-				found = pos_port;
-				avg_yaw = angle_port;				
-				portFirst = true;
-			}
-		}
+		// if(!(sbR ^ portR) )//we got both or got neither, must have dropped through both and need to choose
+		// {
+		// 	if(fabs(sb_score - port_score) / (fmax(sb_score, port_score) + 1e-6f) < 0.15f)
+		// 	{
+		// 		found = div(add(mul(pos_port ,sb_score),mul(pos_sb ,port_score  )),port_score + sb_score);
+		// 		avg_yaw =  (sb_score * angle_port +  port_score * angle_sb  )/ (port_score + sb_score);
+		// 	}
+		// 	else if(sb_score < port_score)
+		// 	{
+		// 		found = pos_sb;
+		// 		avg_yaw = angle_sb;
+		// 		portFirst = false;
+		// 	}
+		// 	else
+		// 	{
+		// 		found = pos_port;
+		// 		avg_yaw = angle_port;				
+		// 		portFirst = true;
+		// 	}
+		// }
 		
 	}
 	else if(move_y)
@@ -346,7 +351,6 @@ void ResolveRotation(ArcNode* nodes,Wall* walls, float current_step_weight, bool
 		///end find consensus
 		total_found /=total_match;
 		
-		//printf("%.2f, %.2f, %.2f",avg_yaw,total_match,total_found);
 		float new_avg_yaw =  avg_yaw *( 1-current_step_weight) + total_found*current_step_weight;
 
 
@@ -366,9 +370,6 @@ void ResolveRotation(ArcNode* nodes,Wall* walls, float current_step_weight, bool
 	}
 }
 float durationStopped =0;
-
-
-
 
 void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount,bool  move_x, bool move_y, bool rotate)
 {	

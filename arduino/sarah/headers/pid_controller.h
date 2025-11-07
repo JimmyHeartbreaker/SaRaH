@@ -4,7 +4,7 @@
 #include "NodeServices.h"
 #include "arduino_ext.h"
 
-#define MOVE_SCAN_ANGLE (20* (M_PI_F/180))
+#define MOVE_SCAN_ANGLE (90* (M_PI_F/180))
 #define ROT_SCAN_ANGLE (180*M_PI_F/180)
 #define M_2PI (M_PI_F*2)
 #define RESOLUTION (M_2PI/N_POINTS) //rad
@@ -43,8 +43,7 @@ float read_scan(
     float new_weight = 0.5f,
     bool calculatePoints = false);
 
-Point2D sum_difference_rotation(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,float angleGuess,float& angle_diff, int searchRange);
-float sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,float angleGuess,float maxRange);
-Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,Point2D guess,float angleGuess,float& std,float& angle_diff,Point2D heading, int searchRange=3);
+Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,float left,float right,Point2D guess,float angleGuess,float& std,float& angle_diff,Point2D heading,float  maxAngle, int searchRange=3);
 
+Point2D* map_nodes(ArcNode* nodes,Point2D* dst, Point2D trans, float rot,float left, float right, bool onlyVisible=true);
 #endif

@@ -3,10 +3,6 @@
 
 #include <Arduino.h>
 
-
-
-
-
 typedef struct LidarDeviceInfo
 {
     unsigned char   Model;

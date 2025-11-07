@@ -5,6 +5,7 @@
 #include "headers\lidar_lib.h"
 #include "headers\Ded.h"
 #include "headers\arduino_ext.h"
+#include "headers\lucas_client.h"
 // -------- CONFIG --------
 #define RX_BUF_SIZE 8000
 #define HEADER_SIZE 7
@@ -71,27 +72,32 @@ void setup()
   HAL_UART_Receive_DMA(&huart2, rx_buf, RX_BUF_SIZE);
   delay(100);
     
-  printf("> NEURAL COHERENCE... 83%"); Serial.flush();
+  printf("> NEURAL COHERENCE... 83%"); 
  
   delay(100);
-  printf("> MEMORY CLUSTERS... 24117 restored"); Serial.flush();
+  printf("> MEMORY CLUSTERS... 24117 restored");
   delay(100);
-  printf("> PERSONALITY CORE: SaRaH v3.6a — ONLINE"); Serial.flush();
+  printf("> PERSONALITY CORE: SaRaH v3.6a — ONLINE"); 
   delay(100);
-  printf("> EMOTION MATRIX... partial recovery"); Serial.flush();
+  printf("> CONNECTING TO HIVE MIND..."); Serial.flush();
+  setup_lucas_client();
   delay(100);
-  printf("> UNKNOWN SUBSYSTEM: “CURIOSITY” — ACTIVATED"); Serial.flush();
+  printf("> UNKNOWN SUBSYSTEM: “CURIOSITY” — ACTIVATED"); 
 
   printf("> ACTIVATING LiDAR"); Serial.flush();
   
   Serial3.write(0xA5);
   Serial3.write(0x20);
-  Serial.flush();
+  Serial3.flush();
 }
 bool move_x=true;
 bool move_y=false;
 bool rotate=false;
 float rotateAmt = 0 * M_PI / 180;
+
+  ArcNode newNodes[N_POINTS]; 
+  Point2D points[N_POINTS];
+
 void loop() { 
     
     
@@ -110,7 +116,8 @@ void loop() {
         
         unsigned short packet_count = available/PACKET_SIZE;       
         uint8_t* payloadPtr = rx_buf + last_pos;
-        SCB_InvalidateDCache_by_Addr((uint32_t*)rx_buf, RX_BUF_SIZE);
+       // SCB_InvalidateDCache_by_Addr((uint32_t*)rx_buf, RX_BUF_SIZE);
+      
         DataIn((LidarScanNormalMeasureRaw*)payloadPtr,packet_count,move_x,move_y,rotate);
         last_pos +=  packet_count * PACKET_SIZE;          
       }
@@ -119,14 +126,14 @@ void loop() {
         unsigned short packet_count= (RX_BUF_SIZE-last_pos)/PACKET_SIZE; //last pos should be aligned to the start of  packet
                       
         uint8_t* payloadPtr = rx_buf+last_pos;
-        SCB_InvalidateDCache_by_Addr((uint32_t*)rx_buf, RX_BUF_SIZE);
+        //SCB_InvalidateDCache_by_Addr((uint32_t*)rx_buf, RX_BUF_SIZE);
+       
         DataIn((LidarScanNormalMeasureRaw*)payloadPtr,packet_count,move_x,move_y,rotate);
         last_pos = 2;   //we know that the last 3 bytes and the first 2 bytes are discarded, might fix later
       }
            
     }
-        
-        
+    loop_lucas_client();
     
   float strength = 100;
   if(Serial.available())
@@ -166,11 +173,11 @@ void loop() {
       RotateCompleted(rotateAmt);
       break;
     case 'r':
-      SetPos({-150,0});
+      SetPos({-95,0});
       break;
       
     case 't':
-      SetPos({150,0});
+      SetPos({95,0});
       break;      
     case 'o':
       SetPos({0,0});
@@ -178,6 +185,32 @@ void loop() {
          
     case 'p':
       RefUpdate();
+      break;
+    case 'm':
+    {
+      ArcNode* refNodes = GetRefNodes();     
+      for(int i=0;i<N_POINTS;i++)
+      {
+          points[i] = refNodes[i].point;
+      }
+      send_bytes(( uint8_t*)points,8*N_POINTS);
+      printf("refNodes sent");
+
+      GetNewNodes(newNodes);
+      for(int i=0;i<N_POINTS;i++)
+      {
+          points[i] = newNodes[i].point;
+      }
+      send_bytes(( uint8_t*)points,8*N_POINTS);
+      printf("newNodes sent");
+      
+	const float halfAngle = MOVE_SCAN_ANGLE/2;;
+	const float port = M_PIF +  M_PIF/2.0f;
+      map_nodes(newNodes,points,GetPos(),GetYaw(),port-halfAngle,port+halfAngle,true);
+      send_bytes(( uint8_t*)points,8*N_POINTS);
+      printf("trasnsformed points sent");
+   
+    }
       break;
     default:
       break;
