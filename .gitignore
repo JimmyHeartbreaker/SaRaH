@@ -8,3 +8,4 @@
 *.csv
 *.exe
 *.exe
+/base_station/lucas/src/__pycache__/*

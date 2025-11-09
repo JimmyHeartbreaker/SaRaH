@@ -147,7 +147,7 @@ bool fwdFirst=true;
 void SetPos(const Point2D& p)
 {
 	avg_pos = p;
-	avg_yaw = 0 * M_PI/180;
+	avg_yaw = 90 * M_PI/180;
 }
 Point2D GetPos()
 {
@@ -168,206 +168,33 @@ void ResolveXY(ArcNode* nodes,float current_step_weight,bool move_x, bool move_y
 {
 	if(!move_x && !move_y)
 		return;
-
-	const float halfAngle = MOVE_SCAN_ANGLE/2;;
-	const float port = M_PIF +  M_PIF/2.0f;
-	const float starboard = M_PIF / 2.0f;
-	const float back = M_PIF;
 	
-	const float power =2;
-	Point2D found={0};
+	Point2D prev_pos = avg_pos;
+	find_pos(nodes,nodes_ref,avg_pos,avg_yaw);		
 	
-	if(move_x)
-	{
-		float port_score=10000;
-		float sb_score=10000;
-		Point2D pos_port = avg_pos;
-		float angle_port = avg_yaw;
-		Point2D pos_sb = avg_pos;
-		float angle_sb = avg_yaw;
-		bool portR=false;
-		bool sbR=false;
-		
-		sbR = find_x(nodes,nodes_ref,pos_sb,angle_sb, starboard-halfAngle,starboard+halfAngle,sb_score,{1,0});
-		//pos_sb = sb;
-		//angle_sb = sb_yaw;
-		//if(sbR )
-	//	{			
-			found = pos_sb;
-			avg_yaw = angle_sb;	
-		//}
-			
-		//printf("port_score:%.6f, sb_score:%.6f",port_score,sb_score);	
-	//	printf("port:%.6f, sb:%.6f",pos_port.X,pos_sb.X);			
-		// if(!(sbR ^ portR) )//we got both or got neither, must have dropped through both and need to choose
-		// {
-		// 	if(fabs(sb_score - port_score) / (fmax(sb_score, port_score) + 1e-6f) < 0.15f)
-		// 	{
-		// 		found = div(add(mul(pos_port ,sb_score),mul(pos_sb ,port_score  )),port_score + sb_score);
-		// 		avg_yaw =  (sb_score * angle_port +  port_score * angle_sb  )/ (port_score + sb_score);
-		// 	}
-		// 	else if(sb_score < port_score)
-		// 	{
-		// 		found = pos_sb;
-		// 		avg_yaw = angle_sb;
-		// 		portFirst = false;
-		// 	}
-		// 	else
-		// 	{
-		// 		found = pos_port;
-		// 		avg_yaw = angle_port;				
-		// 		portFirst = true;
-		// 	}
-		// }
-		
-	}
-	else if(move_y)
-	{
-		float fwd_score=0;
-		float bck_score=0;
-		Point2D pos_fwd = avg_pos;
-		float angle_fwd = avg_yaw;
-		Point2D pos_bck = avg_pos;
-		float angle_bck = avg_yaw;
-		bool portR=false;
-		bool sbR=false;
-		if(fwdFirst)
-		{	
-			fwd:
-			
-			portR = find_y(nodes,nodes_ref,pos_fwd,angle_fwd,port-halfAngle,port+halfAngle,fwd_score,{-1,0});
-			if(portR && fwd_score < 0.5)
-			{			
-				found = pos_fwd;
-				avg_yaw = angle_fwd;		
-			}
-			else if(fwdFirst)//sb didnt run yet
-				goto bck;
-		}
-		else
-		{
-			bck:
-			sbR =  find_y(nodes,nodes_ref,pos_bck,angle_bck, starboard-halfAngle,starboard+halfAngle,bck_score,{1,0});
-			if(sbR && bck_score < 0.5)
-			{			
-				found = pos_bck;
-				avg_yaw = angle_bck;	
-			}
-			else if(!fwdFirst)//port didnt run yet
-				goto fwd;
-		}	
-					
-		if(sbR && portR )//we got both, must have dropped through both and need to choose
-		{
-			if(fabs(bck_score - fwd_score) / (fmax(bck_score, fwd_score) + 1e-6f) < 0.15f)
-			{
-				found = div(add(mul(pos_fwd ,bck_score),mul(pos_bck ,fwd_score  )),fwd_score + bck_score);
-				avg_yaw =  (bck_score * angle_fwd +  fwd_score * angle_bck  )/ (fwd_score + bck_score);
-			}
-			else if(bck_score < fwd_score)
-			{
-				found = pos_bck;
-				avg_yaw = angle_bck;
-				fwdFirst = false;
-			}
-			else
-			{
-				found = pos_fwd;
-				avg_yaw = angle_fwd;				
-				fwdFirst = true;
-			}
-		}
-	
-	}
-	Point2D new_avg_pos =  add(mul(avg_pos , 1-current_step_weight),{found.X*current_step_weight,found.Y*current_step_weight});
-	float new_velocity =dt == 0 ? 0 : mag(div(sub(new_avg_pos ,avg_pos),dt));
+	float new_velocity =dt == 0 ? 0 : mag(div(sub(prev_pos ,avg_pos),dt));
 	if(new_velocity > 1) //bs, thats 1 mm per millisecond
 		return;
 	velocity = new_velocity;
-	avg_pos =new_avg_pos;	
 	
 	printf("X:%.2f, Y:%.2f, velocity:%.2f",avg_pos.X,avg_pos.Y,velocity);
 }
 
-void ResolveRotation(ArcNode* nodes,Wall* walls, float current_step_weight, bool rotate, unsigned long dt)
+void ResolveRotation(ArcNode* nodes, float current_step_weight, bool rotate, unsigned long dt)
 {
 
 	if(!rotate)
+		return;		
+
+	float prev = avg_yaw;
+	find_yaw(nodes,nodes_ref,avg_pos,avg_yaw);
+	float new_angular_velocity =dt == 0 ? 0 : (prev -avg_yaw)/dt;
+	if(new_angular_velocity > 1) //bs
 		return;
-	float total_found=0;
-	int total_match=0;
-	float wrongAvg = 0;
-	int wrongMatchCount = 0;
-	float prevWallAvg = avg_yaw;
-	float results[3];
+	angular_velocity = new_angular_velocity;
+		
+	printf("YAW:%.6f",avg_yaw*180/M_PI);
 	
-	for(int i =0;i<3;i++)
-	{
-		Wall wall = walls[i];
-		if(wall.Start.Dist)
-		{
-			
-			float left = wall.Start.Angle;
-			float right = wall.End.Angle;
-			if(angleDiffFast(left, right ) > 0)
-			{
-				left = right;
-				right =  wall.Start.Angle;
-			}
-			
-		
-			while(left<0)left+=M_2PI;
-			while(left>=M_2PI)left-=M_2PI;
-			while(right<0)right+=M_2PI;
-			while(right>=M_2PI)right-=M_2PI;
-			float dist = (wall.End.Dist * wall.End.Angle + wall.Start.Dist * wall.Start.Angle) / (wall.End.Angle +wall.Start.Angle);
-			
-			//printf("left:%.2f,right:%.2f, dist:%.6f, length:%.6f",left*180/M_PI,right*180/M_PI,dist,mag(sub(wall.Start.Point,wall.End.Point)));
-			float maxRange = dist*1.5;
-			float found=0;
-			//if( 
-				find_yaw(nodes,nodes_ref,left-ROT_SCAN_ANGLE/2,right+ROT_SCAN_ANGLE/2,prevWallAvg,maxRange,found);// && !isnan(found)
-			//)
-			//{
-				results[total_match] = found;
-				prevWallAvg = found;
-				total_found += found;
-				total_match++;
-			// }
-			// else
-			// {
-			// 	//prevWallAvg = found;
-			// 	wrongAvg += found;
-			// 	wrongMatchCount++;
-			// 	//avg_yaw = (found + avg_yaw)/2;
-			// }
-		}
-	}
-	if(total_match !=0)
-	{
-		///find consensus
-		float std = standardDeviation(results,total_match);
-		
-		///end find consensus
-		total_found /=total_match;
-		
-		float new_avg_yaw =  avg_yaw *( 1-current_step_weight) + total_found*current_step_weight;
-
-
-		float new_angular_velocity =dt == 0 ? 0 : (new_avg_yaw -avg_yaw)/dt;
-		if(new_angular_velocity > 1) //bs
-			return;
-		angular_velocity = new_angular_velocity;
-		avg_yaw =new_avg_yaw;	
-		printf("YAW:%.6f",avg_yaw*180/M_PI);
-		
-	}
-	else
-	{
-		avg_yaw = wrongAvg /wrongMatchCount;
-		printf("YAW(bad):%.6f",avg_yaw*180/M_PI);
-
-	}
 }
 float durationStopped =0;
 
@@ -447,7 +274,7 @@ void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount,bool  mov
 		FindWalls(nodes_now,walls);
 		//we shouldnt be moving when doing this		
 				
-		ResolveRotation(nodes_now,walls,current_angular_step_weight,rotate,dt);
+		ResolveRotation(nodes_now,current_angular_step_weight,rotate,dt);
 		// if(angular_velocity == 0)
 		// {
 		// 	durationStopped += dt;

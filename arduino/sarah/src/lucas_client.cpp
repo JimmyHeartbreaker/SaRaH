@@ -49,27 +49,35 @@ void loop_lucas_client() {
 }
 
 
-/* ============================================================
-   Public send (blocking)
-   ============================================================ */
-bool send_bytes(const uint8_t* data, size_t len) {
-  if (!client.connected()) {
-    Serial.println("[lucas_client] send_bytes failed: not connected");
-    return false;
+bool send_bytes(const uint8_t *data, size_t len, unsigned long timeoutMs) {
+  size_t sent = 0;
+  unsigned long start = millis();
+
+  const size_t CHUNK_SIZE = 512; // try 512 or less
+  while (sent < len) {
+    // if (!client.connected()) {
+    //   Serial.println("[wifi] disconnected during send");
+    //   return false;
+    // }
+
+ 
+
+    size_t to_send = min((size_t)CHUNK_SIZE, len - sent);
+    size_t written = client.write(data + sent, to_send);
+    if (written == 0) {
+      if (millis() - start > timeoutMs) {
+        Serial.println("[wifi] write stalled, aborting");
+        return false;
+      }
+      delay(5);
+      continue;
+    }
+
+    sent += written;
+    start = millis();  // reset timeout after progress
   }
 
-  size_t written = client.write(data, len);
-  if (written != len) {
-    Serial.print("[lucas_client] Warning: partial write (");
-    Serial.print(written);
-    Serial.print("/");
-    Serial.print(len);
-    Serial.println(")");
-  }
-  delay(5);
-  client.flush(); // ensure data is sent before returning
- 
-  return (written > 0);
+  return true;
 }
 
 
@@ -80,7 +88,7 @@ static void connectToWiFi() {
   Serial.print("[lucas_client] Connecting to SSID: ");
   Serial.println(LUCAS_WIFI_SSID);
 
-  WiFi.begin(LUCAS_WIFI_SSID);  // open network (no password)
+  WiFi.begin(LUCAS_WIFI_SSID,LUCAS_PASSWORD);  // open network (no password)
   unsigned long start = millis();
   const unsigned long WAIT_MS = 10000;
 

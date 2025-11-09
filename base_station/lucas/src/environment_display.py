@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 SCREEN_SIZE = 1000
-SCALE = 0.2
+SCALE = 0.5
 CENTER = (SCREEN_SIZE // 2, SCREEN_SIZE // 2)
 FPS = 30
 
@@ -34,7 +34,7 @@ def draw_lidar_pixels(points,screen_array,color, robot_pos=(0,0)):
     py = np.clip(py, 0, SCREEN_SIZE-1)
 
     # Set pixels
-    screen_array[px, py] = color # note axes order (row, col)
+    screen_array[px, py] = color + screen_array[px, py]  # note axes order (row, col)
 
     # Blit once
     pygame.surfarray.blit_array(screen, screen_array)

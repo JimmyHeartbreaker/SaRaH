@@ -5,7 +5,7 @@
 #include <vector>
 #include <cmath>
 
-#include "pid_controller.h"
+#include "..\headers\pid_controller.h"
 #define DEG2RAD(x) ((x) * M_PI / 180.0f)
 
 #include <vector>
@@ -362,7 +362,7 @@ void exportPointsToCSV(const std::vector<ArcNode>& nodes, const std::string& fil
     file.close();
 }
 
-float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float yaw,int testnum,Point2D heading,float left, float right,int searchSize=2)
+float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float yaw,int testnum,int searchSize=2)
 {
     const unsigned short n_POINTS = N_POINTS;
 
@@ -389,9 +389,9 @@ float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float
 	{
         float ad=0;
         float angle_diff_t=0;
-	//	newdiff = sum_difference_rotation(new_nodesa,new_nodesb,-1,2,angleDiff,angle_diff_t,3);
-		newdiff = sum_difference(new_nodesa,new_nodesb,left,right,diff,angleDiff,std,angle_diff_t,heading,1.57,searchSize);
-        diff = add(diff,div(newdiff,10.0f));
+		newdiff = sum_difference(new_nodesa,new_nodesb,diff,angleDiff,angle_diff_t,1.57,searchSize);
+        diff.Y += newdiff.Y / 10;
+        diff.X += newdiff.X / 100;//  add(diff,div(newdiff,10.0f));
        
         angleDiff -= angle_diff_t/10;
         if(mag(newdiff) < 0.001 && fabs(angle_diff_t) < 0.001  )
@@ -415,6 +415,7 @@ float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float
     {
       //   std::cout << "\nangle succeeeded \n[input]" << yawMovement << " [output]" << asDegrees;
     }
+    diff.X =0; // the single slopy environment prevents us from determining x position so, it slides around
     if(fabs(fabs(yMovement) - mag(diff)) > 1)
     {
          std::cout << "\nmovement failed \n[input] " << yMovement << " [output] " << mag(diff) << " wall angle " << wallAngleDeg << " yaw " << yaw;
@@ -432,14 +433,14 @@ void move_and_rotate_test()
     Point2D heading = {0,1};
     int index = toIndex(angle,N_POINTS);
     int testnum = 0;
-    for(int wallAngle=0;wallAngle<30;wallAngle+=5)
+    for(int wallAngle=0;wallAngle<70;wallAngle+=5)
     {         
         for(float yaw=-0;yaw<10;yaw+=0.55)
         {
             for(int move=20;move>0;move-=5)
             {
-                float backward = testAngleFlat(wallAngle,100,-move,yaw,testnum++,heading,-0.17,0.17);
-                float fwd = testAngleFlat(wallAngle,100,move,yaw,testnum++,heading,-0.17,0.17);
+                float backward = testAngleFlat(wallAngle,100,-move,yaw,testnum++);
+                float forward = testAngleFlat(wallAngle,100,move,yaw,testnum++);
             // std::cout <<fwd;
             }
         }
@@ -455,14 +456,14 @@ void rotate_test()
     {         
         for(float yaw=-10;yaw<10;yaw+=1.05)
         {
-           testAngleFlat(wallAngle,100,-0,yaw,testnum++,{0,0},-0.17,0.17,3);        
+           testAngleFlat(wallAngle,100,-0,yaw,testnum++,3);        
             
         }
     }
 }
 int main()
 {
-    move_and_rotate_test();
-   // rotate_test();
+   // move_and_rotate_test();
+    rotate_test();
     return 0;
 }

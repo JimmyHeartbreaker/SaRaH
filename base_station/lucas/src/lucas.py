@@ -48,6 +48,7 @@ class EchoHandler(StreamRequestHandler):
     """Handles each client connection: prints and echoes received data."""
     def handle(self):
         peer = self.client_address
+        self.request.settimeout(5)
         print(f"[connection] {peer} connected")
         try:
             print(f"bufsize {self.rbufsize}")
@@ -61,7 +62,6 @@ class EchoHandler(StreamRequestHandler):
                     handle_received_data(data2, peer)
                 
                 data3 = self.rfile.read(8*1440)
-                
 
                 if data3:
                     handle_received_data(data3, peer)
@@ -69,7 +69,7 @@ class EchoHandler(StreamRequestHandler):
                 # Optionally send a response back
                 response = b"ACK\n"
                 self.wfile.write(response)
-               
+            self.rfile.flush()  
         except Exception as e:
             self.rfile.flush()
             print(f"[connection] error from {peer}: {e}")
@@ -95,7 +95,7 @@ def run_server(host="0.0.0.0", port=8888):
 
 def main():
     parser = argparse.ArgumentParser(description="Connect to open Wi-Fi and start TCP listener (Windows only).")
-    parser.add_argument("--ssid", default="Galaxy", help="SSID of the open Wi-Fi network to connect to.")
+    parser.add_argument("--ssid", default="Vodafone701713", help="SSID of the open Wi-Fi network to connect to.")
     parser.add_argument("--host", default="0.0.0.0", help="Host/interface to bind (default: localhost).")
     parser.add_argument("--port", type=int, default=9000, help="Port to listen on (default: 8888).")
     parser.add_argument("--no-connect", action="store_true", help="Skip Wi-Fi connection and only run the listener.")

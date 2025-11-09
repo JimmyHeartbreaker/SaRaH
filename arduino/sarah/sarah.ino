@@ -90,9 +90,9 @@ void setup()
   Serial3.write(0x20);
   Serial3.flush();
 }
-bool move_x=true;
+bool move_x=false;
 bool move_y=false;
-bool rotate=false;
+bool rotate=true;
 float rotateAmt = 0 * M_PI / 180;
 
   ArcNode newNodes[N_POINTS]; 
@@ -193,7 +193,8 @@ void loop() {
       {
           points[i] = refNodes[i].point;
       }
-      send_bytes(( uint8_t*)points,8*N_POINTS);
+      if(!send_bytes(( uint8_t*)points,8*N_POINTS))
+        break;
       printf("refNodes sent");
 
       GetNewNodes(newNodes);
@@ -201,13 +202,13 @@ void loop() {
       {
           points[i] = newNodes[i].point;
       }
-      send_bytes(( uint8_t*)points,8*N_POINTS);
+      if(!send_bytes(( uint8_t*)points,8*N_POINTS))
+        break;
       printf("newNodes sent");
       
-	const float halfAngle = MOVE_SCAN_ANGLE/2;;
-	const float port = M_PIF +  M_PIF/2.0f;
-      map_nodes(newNodes,points,GetPos(),GetYaw(),port-halfAngle,port+halfAngle,true);
-      send_bytes(( uint8_t*)points,8*N_POINTS);
+      map_nodes(newNodes,points,GetPos(),GetYaw(),true);
+      if(!send_bytes(( uint8_t*)points,8*N_POINTS))
+        break;
       printf("trasnsformed points sent");
    
     }
