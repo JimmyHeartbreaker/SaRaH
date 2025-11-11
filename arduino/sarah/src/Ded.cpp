@@ -183,7 +183,6 @@ Transform ResolveXY(ArcNode* nodes,float& confidence )
 Transform ResolveRotation(ArcNode* nodes)
 {
 
-	float prev = avg_yaw;
 	find_yaw(nodes,nodes_ref,avg_pos,avg_yaw);
 		
 	printf("X:%.2f, Y:%.2f, YAW:%.2f",avg_pos.X,avg_pos.Y,avg_yaw);

@@ -26,7 +26,7 @@ void serialPrintf2(const char *format, ...)
 
 
 
-const float kp_rotate = 1.5f;
+const float kp_rotate = 1.0f;
 pid_state pid_rotate = 
     { 
         kp_rotate,  //kp
@@ -47,11 +47,11 @@ pid_state pid_rotate_translate =
         kp_rotate_translate,  //kp
       0,//  0.01f *kp_move_slave , //ki
       0,//  0.07f * kp_move_slave, //kd
-        10, //max
-        -10, //min
+        20, //max
+        -20, //min
         0.1f, //dt
         5000, //Tt
-        0,  //deadband
+        0.01,  //deadband
         0.0, //integral
         0.0, //prev error
     };
@@ -493,20 +493,17 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
 {        
     int timeout=5000;  
     
-    float avgAngleError=0.0;
-    float scoreCount=0;
     #ifndef TESTING
     unsigned long mills_start = millis();
     #endif
-    float avg_error_angle=0;
-    float error_angle=0; 
     while(true)
     {  
         #ifndef TESTING
-        if( millis() - mills_start>timeout || isnan(pos.X) || isnan(pos.Y))                
+        if( millis() - mills_start>timeout || isnan(angle) || isnan(pos.X) || isnan(pos.Y))                
            return false;    
         #endif
       
+        float error_angle=0; 
         Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,4);          
        
         angle = PIDUpdate(&pid_translate_rotate,-error_angle,angle); 
@@ -525,10 +522,8 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
 
 bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle)
 {
-    int timeout=500;  
+    int timeout=50000;  
     float r;
-    float avgAngleError=0.0;
-    float scoreCount=0;
     #ifndef TESTING
     unsigned long mills_start = millis();
     #endif
@@ -547,9 +542,9 @@ bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle)
         pos.Y = PIDUpdate(&pid_rotate_translate,error.Y,pos.Y); 
         pos.X = PIDUpdate(&pid_rotate_translate,error.X,pos.X); 
      
-        //serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
+        serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
        
-        if(fabs(error.X) < pid_rotate.deadband  )
+         if(fabs(error.X) < pid_rotate_translate.deadband && fabs(error.Y) < pid_rotate_translate.deadband && fabs(error_angle) < 0.0002 )
         {
             break;
         } 
