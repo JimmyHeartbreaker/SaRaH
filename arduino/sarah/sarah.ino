@@ -1,11 +1,14 @@
 #include <Arduino.h>
 #include "headers\stm32h7xx_hal_sarah.h"
 #include <cmath>
+#include "string.h"
 #include "headers\pid_controller.h"
 #include "headers\lidar_lib.h"
 #include "headers\Ded.h"
 #include "headers\arduino_ext.h"
 #include "headers\lucas_client.h"
+#include "headers\sample_filter.h"
+
 // -------- CONFIG --------
 #define RX_BUF_SIZE 8000
 #define HEADER_SIZE 7
@@ -16,7 +19,39 @@ extern char _sstack;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 
-// -------------------------
+enum SarahState
+{
+    WAIT_ACK,
+    BOOT,
+    INITIALIZING,
+    PREPARING,
+    READY,
+    BEGIN_MOVE,
+    MOVING,
+    SCANNING,
+    ESTIMATING
+};
+SarahState sarah_state = BOOT;
+SarahState next_state = BOOT;
+
+char last_message;
+float received_x;
+float received_y;
+float received_rot;
+
+//in messages
+const char R_ACK = 0x01;
+const char R_NACK = 0x02;
+const char R_MOVE = 0x03;
+
+//out messages
+const char S_INIT = 0x01;
+const char S_READY = 0x02;
+const char S_PREP = 0x03;
+const char S_MOVE = 0x04;
+const char S_EST = 0x05;
+const char S_GET_CMD = 0x06;
+const char S_DATA = 0x07;
 
 
 void serialPrintf(const char *format, ...)
@@ -42,8 +77,19 @@ extern "C" void USART2_IRQHandler(void) {
 extern "C" void DMA1_Stream5_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_usart2_rx);
 }
+unsigned char send_buffer[256];
 
+bool send_message(unsigned char m)
+{
+   for(int i =0;i<sizeof(send_buffer);i++)
+   {
+      send_buffer[i] = 0;
+   }
+    send_buffer[0] = m;
+    return send_bytes(send_buffer,4);
+}
 
+unsigned long prev_millis;
 void setup() 
 {
   delay(3000);
@@ -81,6 +127,9 @@ void setup()
   delay(100);
   printf("> CONNECTING TO HIVE MIND..."); Serial.flush();
   setup_lucas_client();
+  tryConnectToServer();
+  Samples::Filter::SetupFilter();
+ 
   delay(100);
   printf("> UNKNOWN SUBSYSTEM: “CURIOSITY” — ACTIVATED"); 
 
@@ -89,18 +138,21 @@ void setup()
   Serial3.write(0xA5);
   Serial3.write(0x20);
   Serial3.flush();
+  prev_millis = millis();
 }
+
+
 bool move_x=false;
 bool move_y=false;
 bool rotate=true;
 float rotateAmt = 0 * M_PI / 180;
 
   ArcNode newNodes[N_POINTS]; 
-  Point2D points[N_POINTS];
+  uint8_t points[N_POINTS*8+4];
 
-void loop() { 
-    
-    
+  int process_lidar_feed()
+  {
+    int samples_processed=0;
     while (1) 
     {
       uint32_t current_pos = RX_BUF_SIZE - DMA1_Stream5->NDTR;
@@ -117,8 +169,9 @@ void loop() {
         unsigned short packet_count = available/PACKET_SIZE;       
         uint8_t* payloadPtr = rx_buf + last_pos;
        // SCB_InvalidateDCache_by_Addr((uint32_t*)rx_buf, RX_BUF_SIZE);
-      
-        DataIn((LidarScanNormalMeasureRaw*)payloadPtr,packet_count,move_x,move_y,rotate);
+        
+       samples_processed += packet_count;
+        DataIn((LidarScanNormalMeasureRaw*)payloadPtr,packet_count);
         last_pos +=  packet_count * PACKET_SIZE;          
       }
       else if(last_pos>2)//we have wrapped around back to the start, definitely not a header, first eat what remained of the end, then do another loop back to take the start
@@ -128,96 +181,233 @@ void loop() {
         uint8_t* payloadPtr = rx_buf+last_pos;
         //SCB_InvalidateDCache_by_Addr((uint32_t*)rx_buf, RX_BUF_SIZE);
        
-        DataIn((LidarScanNormalMeasureRaw*)payloadPtr,packet_count,move_x,move_y,rotate);
+       samples_processed += packet_count;
+        DataIn((LidarScanNormalMeasureRaw*)payloadPtr,packet_count);
         last_pos = 2;   //we know that the last 3 bytes and the first 2 bytes are discarded, might fix later
       }
            
     }
-    loop_lucas_client();
-    
-  float strength = 100;
-  if(Serial.available())
-  {
-    char c = Serial.read();
-    
-    switch (c)
-    {
-    case 'W':
-    case 'S':
-     move_y = true;
-     move_x = false;
-     rotate = false;
-     rotateAmt = 0;
-     break;
-    break;
-    case 'A':
-    case 'D':
-     move_y = false;
-     move_x = true;
-     rotate = false;
-     rotateAmt = 0;
-    break;
-    case 'E':
-    rotateAmt =45 * M_PI / 180;
-    rotate = true;
-     move_y = false;
-     move_x = false;
-    break;
-    case 'Q':
-    rotateAmt =-45 * M_PI / 180;
-    rotate = true;
-     move_y = false;
-     move_x = false;
-    break;
-    case 'F':
-      RotateCompleted(rotateAmt);
-      break;
-    case 'r':
-      SetPos({-95,0});
-      break;
-      
-    case 't':
-      SetPos({95,0});
-      break;      
-    case 'o':
-      SetPos({0,0});
-      break;
-         
-    case 'p':
-      RefUpdate();
-      break;
-    case 'm':
-    {
-      ArcNode* refNodes = GetRefNodes();     
-      for(int i=0;i<N_POINTS;i++)
-      {
-          points[i] = refNodes[i].point;
-      }
-      if(!send_bytes(( uint8_t*)points,8*N_POINTS))
-        break;
-      printf("refNodes sent");
 
-      GetNewNodes(newNodes);
-      for(int i=0;i<N_POINTS;i++)
-      {
-          points[i] = newNodes[i].point;
-      }
-      if(!send_bytes(( uint8_t*)points,8*N_POINTS))
-        break;
-      printf("newNodes sent");
-      
-      map_nodes(newNodes,points,GetPos(),GetYaw(),true);
-      if(!send_bytes(( uint8_t*)points,8*N_POINTS))
-        break;
-      printf("trasnsformed points sent");
-   
-    }
-      break;
-    default:
-      break;
-    }
-    
+    return samples_processed;
   }
+
+void send_map()
+{
+   ArcNode* refNodes = GetRefNodes();     
+            points[0] = S_DATA;
+            for(int i=0;i<N_POINTS;i++)
+            {
+              memcpy(&points[i*8+4], &refNodes[i].point , 8);              
+            }
+        
+            while(!send_bytes(points,8*N_POINTS+4))
+            {
+  //tryConnectToServer();
+              delay(500);
+            }
+            printf("refNodes sent");
+          
+            GetNewNodes(newNodes);
+            for(int i=0;i<N_POINTS;i++)
+            {
+              memcpy(&points[i*8+4], &newNodes[i].point , 8);      
+            }
+              
+           
+            while(!send_bytes(points,8*N_POINTS+4))
+            {
+  //tryConnectToServer();
+              delay(500);
+            }
+              
+
+            printf("newNodes sent");
+
+            map_nodes(newNodes,(Point2D*)(points+4),GetPos(),GetYaw(),true);
+            
+              
+            while(!send_bytes(points,8*N_POINTS+4))
+            {
+  //tryConnectToServer();
+              delay(500);
+            }
+}
+void resend_message()
+{   
+    send_bytes(send_buffer,1);
+} 
+
+Point2D current_pos;
+float current_yaw;
+int attempts = 0;
+unsigned long time_waited=0;
+void loop() { 
+  connectToWiFi();
+  //tryConnectToServer();
+  
+  unsigned long mills = millis();
+  unsigned long dt = mills - prev_millis;
+  prev_millis = mills;
+  unsigned char receive_buffer[256];
+  switch (sarah_state)
+  {    
+    case BOOT:     
+      if(send_message(S_INIT))
+      {    
+        printf("> INIT SENT");   
+        next_state = INITIALIZING;
+        sarah_state = WAIT_ACK;    
+      }     
+      else
+      {
+        printf("> COULD NOT CONNECT TO HIVE MIND."); 
+        printf("> RE-TRYING");     
+        delay(1000);
+      } 
+      break;
+    case WAIT_ACK:
+    {
+    int nBytes =get_bytes(receive_buffer,4);
+      if(nBytes > 0)
+      {
+        time_waited = 0;
+        if(receive_buffer[0] == R_ACK )
+        { 
+          printf("ACK RECEIVED");
+          sarah_state = next_state;
+        }
+        else if(receive_buffer[0] == R_NACK  )
+        {
+          printf("NACK RECEIVED");
+          resend_message();
+        }  
+        else 
+        {
+          printf("MESSAGE NOT UNDERSTOOD:%i",receive_buffer[0] );
+          resend_message();
+        }      
+      }
+      else if ( time_waited > 2000)
+      {
+        time_waited = 0;
+       // printf("TIMEOUT");
+        resend_message();
+        if(attempts++ > 3)
+        {
+            printf("RESETTING");
+            tryConnectToServer();
+            sarah_state = BOOT;
+            attempts=0;
+        }
+      }
+      else
+      {
+        time_waited += dt;
+      }
+    break;
+    }
+  case INITIALIZING:  
+      
+      if(send_message(S_PREP))
+      { 
+        Reset(); 
+        next_state = PREPARING;
+        sarah_state = WAIT_ACK;
+        printf("> PREP SENT");  
+      } 
+          
+    break;
+  case PREPARING:
+      if(process_lidar_feed())
+      {
+        printf("> PROCESSING LIDAR FEED...");  
+        if(TryMakeRefScan())
+        {
+          if(send_message(S_READY))
+          {
+            next_state = READY;
+            sarah_state = WAIT_ACK;
+            printf("> READY SENT");  
+          }
+        }      
+      }
+      break;
+  case READY:
+     if(send_message(S_GET_CMD))
+      { 
+        next_state = BEGIN_MOVE;
+        sarah_state = WAIT_ACK;
+        printf("> S_GET_CMD SENT");  
+      } 
+     
+      break;
+  case BEGIN_MOVE:
+    {
+      if(get_bytes(receive_buffer,12))
+      {                
+          printf("> X Y ROT RECEIVED");  
+          memcpy(&received_x, receive_buffer , sizeof(float));
+          memcpy(&received_y, receive_buffer + 4 , sizeof(float));
+          memcpy(&received_rot, receive_buffer + 8 , sizeof(float));
+          next_state = MOVING;
+          sarah_state = MOVING;         
+      }
+      else
+      {
+          printf("> SOMETHING BAD");  
+      }
+      break;
+    }
+  case MOVING:
+    {
+      process_lidar_feed();
+      if(Serial.available())
+      { 
+        printf("> MOVE LIDAR");  
+        char c = Serial.read();//any key stroke will do
+        if(c)
+        { 
+          next_state = ESTIMATING;
+          sarah_state = ESTIMATING;
+        }
+      }
+      break;
+    }
+  case ESTIMATING:
+    process_lidar_feed();
+    Transform t ;
+    float confidence;
+    if(received_rot != 0)
+    {
+      t = EstimateRotation(received_x,received_y,received_rot);
+
+    }
+    else
+    {
+      t= EstimateTranslation(received_x,received_y,received_rot,confidence);
+    }
+    current_pos = add(current_pos,t.Point);
+    
+		printf("X:%.2f, Y:%.2f, confidence:%.6f",current_pos.X,current_pos.Y,confidence);
+    send_map();
+    TryMakeRefScan();
+    if(send_message(S_READY))
+    {
+      next_state = READY;
+      sarah_state = WAIT_ACK;
+      printf("> READY SENT");  
+    }
+  default:
+    break;
+  }
+   
+    // }
+    //   break;
+    // default:
+    //   break;
+    // }
+    
+  
   
 }    
 

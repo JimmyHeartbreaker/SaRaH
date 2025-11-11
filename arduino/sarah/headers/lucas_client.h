@@ -19,14 +19,15 @@
 
 // Initializes the WiFi and prepares the client
 void setup_lucas_client();
-
+int connectToWiFi();
+int tryConnectToServer();
 // Handles reconnections and reads incoming data
-void loop_lucas_client();
+int get_bytes(uint8_t* buf, size_t buf_size);
 
 // Sends bytes to the connected TCP server (blocking)
-bool send_bytes(const uint8_t* data, size_t len, unsigned long timeoutMs = 10000);
+bool send_bytes(const uint8_t* data, size_t len, unsigned long timeoutMs = 1000);
 
 // Callback when data arrives — override if needed
-void handle_received_bytes(const uint8_t *buf, size_t len, IPAddress remoteIP, uint16_t remotePort);
+//void handle_received_bytes(const uint8_t *buf, size_t len, IPAddress remoteIP, uint16_t remotePort);
 
 #endif  // LUCAS_CLIENT_H

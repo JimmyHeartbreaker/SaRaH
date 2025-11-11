@@ -211,16 +211,48 @@ void PrintNodes(ArcNode* nodes)
        // serialPrintf("%i,%.06f,%.06f",i,nodes[i].dist,nodes[i].angle);
     }
 }
+// void InterpolateMissingNodes(ArcNode* nodes)
+// {
+//     const float ANG_STEP = M_2PI / N_POINTS;
+//     for(int i=0; i<N_POINTS; ++i)
+//     {
+//         if(nodes[i].dist <= 0)
+//         {
+//             nodes[i].angle = i*ANG_STEP;
+//             nodes[i].dist = (nodes[i-1].dist + nodes[(i+1)%N_POINTS].dist)/2.0f;
+//         }
+//     }
+// }
+
 void InterpolateMissingNodes(ArcNode* nodes)
 {
     const float ANG_STEP = M_2PI / N_POINTS;
-    for(int i=0; i<N_POINTS; ++i){
-    if(nodes[i].dist <= 0){
-        nodes[i].angle = i*ANG_STEP;
-        nodes[i].dist = (nodes[i-1].dist + nodes[(i+1)%N_POINTS].dist)/2.0f;
+
+    for(int i = 0; i < N_POINTS; ++i)
+    {
+        if(nodes[i].dist <= 0)
+        {
+            // Find previous valid node
+            int prev = i - 1;
+            while(prev >= 0 && nodes[prev].dist <= 0) prev--;
+            if(prev < 0) prev += N_POINTS;  // wrap around
+
+            // Find next valid node
+            int next = (i + 1) % N_POINTS;
+            while(nodes[next].dist <= 0 && next != i) next = (next + 1) % N_POINTS;
+
+            float prevDist = nodes[prev].dist;
+            float nextDist = nodes[next].dist;
+
+            // Calculate linear interpolation
+            int gap = (next > prev) ? (next - prev) : (N_POINTS - prev + next);
+            int offset = (i - prev + N_POINTS) % N_POINTS;
+            nodes[i].dist = prevDist + (nextDist - prevDist) * (float(offset) / gap);
+            nodes[i].angle = i * ANG_STEP;
+        }
     }
 }
-}
+
 int CountZeros(ArcNode* nodes)
 {
     int zeros=0;
