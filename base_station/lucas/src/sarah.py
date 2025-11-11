@@ -31,9 +31,13 @@ class SarahState(Enum):
     
 class Sarah:
     state = SarahState.BOOT
-    target_x = 0
-    target_y = 0
-    target_rot =0.78539
+    cur_x = 0
+    cur_y = 0
+    cur_rot = 0
+    
+    d_x = 0
+    d_y = 0
+    d_rot =0
 
 
 sarah_inst = Sarah()

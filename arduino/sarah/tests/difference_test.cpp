@@ -391,8 +391,8 @@ float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float
         float ad=0;
         float angle_diff_t=0;
 		newdiff = sum_difference(new_nodesa,new_nodesb,diff,angleDiff,angle_diff_t,1.57,total_resid,searchSize);
-        diff.Y += newdiff.Y / 10;
-        diff.X += newdiff.X / 100;//  add(diff,div(newdiff,10.0f));
+        diff.Y += -newdiff.Y / 10;
+        diff.X += -newdiff.X / 100;//  add(diff,div(newdiff,10.0f));
        
         angleDiff -= angle_diff_t/10;
         if(mag(newdiff) < 0.001 && fabs(angle_diff_t) < 0.001  )
@@ -464,7 +464,7 @@ void rotate_test()
 }
 int main()
 {
-    move_and_rotate_test();
-   // rotate_test();
+    //move_and_rotate_test();
+    rotate_test();
     return 0;
 }

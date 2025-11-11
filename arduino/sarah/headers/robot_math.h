@@ -92,6 +92,11 @@ static inline Point2D add(const Point2D& a, const Point2D& b)
 {
     return { a.X + b.X,a.Y+b.Y};
 }
+
+static inline Point2D rotate(const Point2D& a, float angle)
+{
+    return { a.X * cosf(angle) - a.Y * sinf(angle),a.X * sinf(angle) + a.Y * cosf(angle)};
+}
 static inline Point2D sub(const Point2D& a,const Point2D& b)
 {
     return { a.X - b.X,a.Y-b.Y};

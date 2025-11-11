@@ -360,11 +360,11 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
              float new_angle ;
             if(new_node->angle >= M_PIF)
             {
-                new_angle =(new_node->angle-M_2PI) +  angleGuess;
+                new_angle =(new_node->angle-M_2PI);
             }
             else
             {
-                new_angle =new_node->angle +  angleGuess;
+                new_angle =new_node->angle;
             }
          
                             
@@ -372,7 +372,7 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
             if(!next_node->dist)
                 continue;
 
-            float next_angle = next_node->angle + angleGuess;
+            float next_angle = next_node->angle;
         
             
             Point2D new_point = toPoint2D(new_angle,new_node->dist);
@@ -380,10 +380,10 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
             float oldDist = mag(old_nodes[oldIndex].point);
             float est_dist_ratio = oldDist >0 ? mag(new_point)/oldDist : 1.0;
 
-            Point2D expected_old_frame_point =add(new_point ,guess);                             
+            Point2D expected_old_frame_point = rotate(sub(new_point ,guess),-angleGuess);                             
             
             Point2D next_point = toPoint2D(next_angle,next_node->dist);
-            Point2D expected_next_old_frame_point = add(next_point ,guess);  
+            Point2D expected_next_old_frame_point = rotate(sub(next_point ,guess),-angleGuess);  
 
             float matchAngle = (angleGuess);
             Point2D matchdist = {0,0};
@@ -467,23 +467,23 @@ Point2D* map_nodes(ArcNode* nodes,Point2D* dst, Point2D trans, float rot, bool o
              float new_angle ;
             if(new_node->angle >= M_PIF)
             {
-                new_angle =(new_node->angle-M_2PI) +  rot;
+                new_angle =(new_node->angle-M_2PI) ;
             }
             else
             {
-                new_angle =new_node->angle +  rot;
+                new_angle =new_node->angle ;
             }
                 
             ArcNode* next_node = nodes + ((i + 1) % N_POINTS);
             if(!next_node->dist)
                 continue;
 
-            float next_angle = next_node->angle + rot;
+            float next_angle = next_node->angle;
             
             Point2D new_point = toPoint2D(new_angle,new_node->dist);
 
-            Point2D expected_old_frame_point =add(new_point ,trans);                             
-            dst[i] = expected_old_frame_point;
+            Point2D expected_old_frame_point =sub(new_point ,trans);                             
+            dst[i] = rotate(expected_old_frame_point,-rot);
            
         }
     }
@@ -504,11 +504,11 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
         #endif
       
         float error_angle=0; 
-        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,4);          
+        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,2);          
        
         angle = PIDUpdate(&pid_translate_rotate,-error_angle,angle); 
-        pos.Y = PIDUpdate(&pid_y,error.Y,pos.Y); 
-        pos.X = PIDUpdate(&pid_x,error.X,pos.X); 
+        pos.Y = PIDUpdate(&pid_y,-error.Y,pos.Y); 
+        pos.X = PIDUpdate(&pid_x,-error.X,pos.X); 
      
         serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
         if(fabs(error.X) < pid_x.deadband && fabs(error.Y) < pid_y.deadband && fabs(error_angle) < 0.0001 )
@@ -520,10 +520,9 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
     return true;    
 }
 
-bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle)
+bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual)
 {
-    int timeout=50000;  
-    float r;
+    int timeout=5000;  
     #ifndef TESTING
     unsigned long mills_start = millis();
     #endif
@@ -535,12 +534,12 @@ bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle)
         #endif
         float error_angle=0; 
       
-        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,r,5); 
+        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,5); 
          
        
         angle = PIDUpdate(&pid_rotate,-error_angle,angle); 
-        pos.Y = PIDUpdate(&pid_rotate_translate,error.Y,pos.Y); 
-        pos.X = PIDUpdate(&pid_rotate_translate,error.X,pos.X); 
+        pos.Y = PIDUpdate(&pid_rotate_translate,-error.Y,pos.Y); 
+        pos.X = PIDUpdate(&pid_rotate_translate,-error.X,pos.X); 
      
         serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
        

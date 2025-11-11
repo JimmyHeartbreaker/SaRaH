@@ -142,10 +142,6 @@ void setup()
 }
 
 
-bool move_x=false;
-bool move_y=false;
-bool rotate=true;
-float rotateAmt = 0 * M_PI / 180;
 
   ArcNode newNodes[N_POINTS]; 
   uint8_t points[N_POINTS*8+4];
@@ -190,7 +186,16 @@ float rotateAmt = 0 * M_PI / 180;
 
     return samples_processed;
   }
+void send_pose(float x, float y, float rot,float confidence)
+{
+   float data[4] = {x,y,rot,confidence};
 
+     while(!send_bytes((uint8_t*)data,16))
+      {
+//tryConnectToServer();
+        delay(500);
+      }
+}
 void send_map()
 {
    ArcNode* refNodes = GetRefNodes();     
@@ -379,7 +384,7 @@ void loop() {
     float confidence;
     if(received_rot != 0)
     {
-      t = EstimateRotation(received_x,received_y,received_rot);
+      t = EstimateRotation(received_x,received_y,received_rot,confidence);
 
     }
     else
@@ -390,6 +395,7 @@ void loop() {
     
 		printf("X:%.2f, Y:%.2f, confidence:%.6f",current_pos.X,current_pos.Y,confidence);
     send_map();
+    send_pose(t.Point.X,t.Point.Y,t.Angle,confidence);
     TryMakeRefScan();
     if(send_message(S_READY))
     {

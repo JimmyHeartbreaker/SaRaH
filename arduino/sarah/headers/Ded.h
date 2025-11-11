@@ -26,5 +26,5 @@ void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount);
 bool TryMakeRefScan();
 
 Transform EstimateTranslation(float x, float y, float yaw,float& confidence);
-Transform EstimateRotation(float x, float y, float yaw);
+Transform EstimateRotation(float x, float y, float yaw,float& confidence);
 #endif

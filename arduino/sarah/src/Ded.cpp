@@ -180,32 +180,34 @@ Transform ResolveXY(ArcNode* nodes,float& confidence )
 	return {avg_pos,avg_yaw,mag(avg_pos),false};
 }
 
-Transform ResolveRotation(ArcNode* nodes)
+Transform ResolveRotation(ArcNode* nodes,float& confidence)
 {
 
-	find_yaw(nodes,nodes_ref,avg_pos,avg_yaw);
+	float total_residual;
+	find_yaw(nodes,nodes_ref,avg_pos,avg_yaw,total_residual);
 		
 	printf("X:%.2f, Y:%.2f, YAW:%.2f",avg_pos.X,avg_pos.Y,avg_yaw);
-	return {avg_pos.X,avg_pos.Y,avg_yaw,mag(avg_pos),false};	
+	confidence = 25000 / total_residual;
+	return {avg_pos,avg_yaw,mag(avg_pos),false};	
 }
 
 Transform EstimateTranslation(float x, float y, float yaw,float& confidence)
 {
-	avg_pos = {x,y};
-	avg_yaw = yaw;
+	avg_pos = {-x,-y};
+	avg_yaw = -yaw;
 	ArcNode nodes_now[N_POINTS];
 	getFilteredSnapshot(nodes_now);
 	return ResolveXY(nodes_now,confidence );
 }
 
 
-Transform EstimateRotation(float x, float y, float yaw)
+Transform EstimateRotation(float x, float y, float yaw,float& confidence)
 {
-	avg_pos = {x,y};
-	avg_yaw = yaw;
+	avg_pos = {-x,-y};
+	avg_yaw = -yaw;
 	ArcNode nodes_now[N_POINTS];
 	getFilteredSnapshot(nodes_now);
-	return ResolveRotation(nodes_now );
+	return ResolveRotation(nodes_now,confidence);
 }
 
 

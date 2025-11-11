@@ -19,7 +19,8 @@ from Sample import Sample
 import sarah
 from sarah import  SarahState,sarah_inst
 from server import start_server, data_queue
-from environment_display import SCREEN_SIZE, draw_lidar_pixels, update
+from environment_display import SCREEN_SIZE, draw_lidar_pixels, update,screen
+from grid import grid_inst
 
 def convertToSamples(data):
     return [
@@ -48,7 +49,7 @@ def main():
                 nextState = SarahState.READY                     
             case SarahState.READY:
                 expected = sarah.S_GET_CMD
-                response = struct.pack('<ifff', 0x01010101,sarah.sarah_inst.target_x, sarah.sarah_inst.target_y, sarah.sarah_inst.target_rot)
+                response = struct.pack('<ifff', 0x01010101,sarah.sarah_inst.d_x, sarah.sarah_inst.d_y, sarah.sarah_inst.d_rot)
                 nextState = SarahState.ESTIMATING
             case SarahState.MOVING:
                 expected = sarah.S_EST
@@ -60,7 +61,11 @@ def main():
                     data_queue.put(rfile.read(1440*8))
                     data = rfile.read(4)
                     data_queue.put(rfile.read(1440*8))                    
-                    data = rfile.read(4)                
+                    data = rfile.read(16)      
+                    posrot = struct.unpack('<ffff',data)
+                    data_queue.put(posrot)        
+                    data = rfile.read(4)      
+                              
                     expected = sarah.S_READY
                     nextState = SarahState.READY
         
@@ -83,14 +88,22 @@ def main():
        
         if( not data_queue.empty()):
             old = data_queue.get(True)
-            draw_lidar_pixels(convertToSamples(old),screen_array,[0, 255, 0] )       
+            oldSamples = convertToSamples(old)
+           # draw_lidar_pixels(,screen_array,[0, 255, 0] )       
             new = data_queue.get(True)   
-            draw_lidar_pixels(convertToSamples(new),screen_array,[0, 0, 255] )        
-            transformed = data_queue.get(True)                  
-            draw_lidar_pixels(convertToSamples(transformed),screen_array,[255, 0, 0] )
-            update()            
-                
-            
+        #    draw_lidar_pixels(convertToSamples(new),screen_array,[0, 0, 255] )        
+            transformed = data_queue.get(True)          
+            transformedSamples = convertToSamples(transformed)        
+          #  draw_lidar_pixels(transformedSamples,screen_array,[255, 0, 0] )
+                    
+            posyaw = data_queue.get(True)  
+            grid_inst.reinforce(oldSamples,sarah.sarah_inst.cur_x ,sarah.sarah_inst.cur_y ,sarah.sarah_inst.cur_rot)
+            grid_inst.add(transformedSamples,sarah.sarah_inst.cur_x ,sarah.sarah_inst.cur_y ,sarah.sarah_inst.cur_rot,posyaw[3] )
+            sarah.sarah_inst.cur_x = sarah.sarah_inst.cur_x - posyaw[0]
+            sarah.sarah_inst.cur_y = sarah.sarah_inst.cur_y - posyaw[1]
+            sarah.sarah_inst.cur_rot = sarah.sarah_inst.cur_rot - posyaw[2]
+            grid_inst.draw(0,0,screen_array,screen,sarah.sarah_inst.cur_x,sarah.sarah_inst.cur_y  )
+            update()    
             
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

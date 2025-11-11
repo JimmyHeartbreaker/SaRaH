@@ -34,7 +34,7 @@ inline float angleDiffFast(float a, float b) {
 	return d;
 }
 bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual);
-bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle);
+bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual);
 float read_scan(
     LidarScanNormalMeasureRaw* nodes,
     ArcNode* dst,
