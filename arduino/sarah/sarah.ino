@@ -1,5 +1,5 @@
 
-#pragma GCC optimize ("O3") 
+#pragma GCC optimize ("O3,inline-functions,fast-math") 
 #include <Arduino.h>
 #include "headers\stm32h7xx_hal_sarah.h"
 #include <cmath>

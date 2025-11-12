@@ -129,7 +129,7 @@ float PIDUpdate(pid_state* pid, float y,float prev_input)
 	return new_input;
 }
 
-void calculate_angle_and_direction(float attenuatioNew,float max_Dist, float strengthAdj,const Point2D& n,const Point2D& midPoint,ArcNode* left, ArcNode* right,float& angle_error,float& distance_error,float& angle,Point2D& dist,float maxAngle)
+void calculate_angle_and_direction(float attenuatioNew,float max_Dist, float strengthAdj,const Point2D& n,const Point2D& midPoint,ArcNode* left, ArcNode* right,float& angle_error,float& distance_error,float& angle,Point2D& dist)
 { 
     Point2D& leftP = left->point;
     Point2D& rightP = right->point;
@@ -158,7 +158,7 @@ void calculate_angle_and_direction(float attenuatioNew,float max_Dist, float str
    
 }
 
-int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl, Point2D& nr, ArcNode* old_nodes,float sample_angle, float& adjust_angle,Point2D& bestDist, int searchSize,float& angle_error, float& distance_error,float maxAngle)
+int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl, Point2D& nr, ArcNode* old_nodes,float sample_angle, float& adjust_angle,Point2D& bestDist, int searchSize,float& angle_error, float& distance_error,float maxAngle, float recipMaxAngle)
 {
     float cross_origin = nl.X *nr.Y - nl.Y * nr.X;
     if (cross_origin > 0.0f) {
@@ -187,7 +187,7 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
     float segmentSize =mag(v);
     float segmentSizeWeight = (1-magMidp/ (segmentSize+magMidp));
 
-    float strengthAdj = segmentSizeWeight * (1- fmax(0,maxAngle-fabs(nmp_angle)) * 1/maxAngle);
+    float strengthAdj = segmentSizeWeight * (1- fmax(0,maxAngle-fabs(nmp_angle)) * recipMaxAngle);
     strengthAdj *=strengthAdj;
     float best_angle_error = 1000000;        
     float best_dist_error = 1000000;        
@@ -217,7 +217,7 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
         ArcNode* right = (old_nodes + rightIndex);
         if(right->dist && prev_right->dist)
         {
-            calculate_angle_and_direction(attenuationNew,max_dist,strengthAdj,n,midPoint,prev_right,right,angle_error,distance_error,angle,dist,maxAngle);
+            calculate_angle_and_direction(attenuationNew,max_dist,strengthAdj,n,midPoint,prev_right,right,angle_error,distance_error,angle,dist);
        
               if( (distance_error  < best_dist_error ) && fabs(angle)<maxAngle)
                 {
@@ -244,7 +244,7 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
         ArcNode* left = (old_nodes + leftIndex);
          if(left->dist && prev_left->dist )
         {
-            calculate_angle_and_direction(attenuationNew,max_dist, strengthAdj,n,midPoint,left,prev_left,angle_error,distance_error,angle,dist,maxAngle);
+            calculate_angle_and_direction(attenuationNew,max_dist, strengthAdj,n,midPoint,left,prev_left,angle_error,distance_error,angle,dist);
      
             if( (distance_error  < best_dist_error ) && fabs(angle)<maxAngle)
             {
@@ -323,8 +323,9 @@ void removeOutliersMAD(WeightedAngle* data,float* angles,float* weights, int siz
 WeightedAngle weightedAngles[N_POINTS] = {0};
 float angles[N_POINTS] = {0};
 float weights[N_POINTS] = {0};
-Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,float angleGuess,float& angle_diff,float  maxAngle,float& totalDistResidual, int searchRange)
+Point2D sum_difference(ArcNode* __restrict  new_nodes, ArcNode* __restrict  old_nodes,const Point2D& guess,float angleGuess,float& angle_diff,float  maxAngle,float& totalDistResidual, int searchRange)
 {
+    float recipMaxAngle  = 1.0f/maxAngle;
     int aCount=0;
     
     float prevAngleDiff = angle_diff;
@@ -346,11 +347,7 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
         if(!new_node->dist )
             continue;
 
-        float new_angle = new_node->angle;
-        if(new_node->angle >= M_PIF)            
-            new_angle =(new_node->angle-M_2PI);            
-        else            
-            new_angle =new_node->angle;         
+        float new_angle = new_node->angle;    
                         
         ArcNode* next_node = new_nodes + ((i + 1) % N_POINTS);
         if(!next_node->dist)
@@ -371,7 +368,7 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
         Point2D matchdist = {0,0};
         float angle_error=0;
         float distance_error=0;
-        int index = findAngleAndDistanceOffset(max_dist, est_dist_ratio,expected_old_frame_point,expected_next_old_frame_point,old_nodes, new_angle+angleGuess ,matchAngle,matchdist,searchRange,angle_error,distance_error,maxAngle);
+        int index = findAngleAndDistanceOffset(max_dist, est_dist_ratio,expected_old_frame_point,expected_next_old_frame_point,old_nodes, new_angle+angleGuess ,matchAngle,matchdist,searchRange,angle_error,distance_error,maxAngle,recipMaxAngle);
         
         if(index>=0)
         {   
