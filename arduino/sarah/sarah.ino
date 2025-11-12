@@ -1,3 +1,5 @@
+
+#pragma GCC optimize ("O3") 
 #include <Arduino.h>
 #include "headers\stm32h7xx_hal_sarah.h"
 #include <cmath>
@@ -8,7 +10,6 @@
 #include "headers\arduino_ext.h"
 #include "headers\lucas_client.h"
 #include "headers\sample_filter.h"
-
 // -------- CONFIG --------
 #define RX_BUF_SIZE 8000
 #define HEADER_SIZE 7

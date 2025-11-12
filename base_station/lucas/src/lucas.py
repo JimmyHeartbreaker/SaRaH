@@ -49,7 +49,7 @@ def main():
                 nextState = SarahState.READY                     
             case SarahState.READY:
                 expected = sarah.S_GET_CMD
-                response = struct.pack('<ifff', 0x01010101,sarah.sarah_inst.d_x, sarah.sarah_inst.d_y, sarah.sarah_inst.d_rot)
+                response = struct.pack('<ifff', 0x01010101,-sarah.sarah_inst.d_x, -sarah.sarah_inst.d_y, -sarah.sarah_inst.d_rot)
                 nextState = SarahState.ESTIMATING
             case SarahState.MOVING:
                 expected = sarah.S_EST

@@ -26,7 +26,7 @@ void serialPrintf2(const char *format, ...)
 
 
 
-const float kp_rotate = 1.0f;
+const float kp_rotate = 0.6f;
 pid_state pid_rotate = 
     { 
         kp_rotate,  //kp
@@ -41,7 +41,7 @@ pid_state pid_rotate =
         0.0, //prev error
     };
 
-const float kp_rotate_translate = 0.1f;
+const float kp_rotate_translate = 0.3f;
 pid_state pid_rotate_translate = 
     { 
         kp_rotate_translate,  //kp
@@ -56,7 +56,7 @@ pid_state pid_rotate_translate =
         0.0, //prev error
     };
 
-const float kp_y = 1.0f;
+const float kp_y = 0.6f;
 pid_state pid_y = 
     { 
         kp_y,  //kp
@@ -71,7 +71,7 @@ pid_state pid_y =
         0.0, //prev error
     };
 
-    const float kp_x = 1.0f;
+    const float kp_x = 0.6f;
 pid_state pid_x = 
     { 
         kp_x,  //kp
@@ -85,7 +85,7 @@ pid_state pid_x =
         0.0, //integral
         0.0, //prev error
     };
-const float kp_translate_rotate = 0.5f;
+const float kp_translate_rotate = 0.3f;
 pid_state pid_translate_rotate = 
     { 
         kp_translate_rotate,  //kp
@@ -131,8 +131,8 @@ float PIDUpdate(pid_state* pid, float y,float prev_input)
 
 void calculate_angle_and_direction(float attenuatioNew,float max_Dist, float strengthAdj,const Point2D& n,const Point2D& midPoint,ArcNode* left, ArcNode* right,float& angle_error,float& distance_error,float& angle,Point2D& dist,float maxAngle)
 { 
-    Point2D leftP = left->point;
-    Point2D rightP = right->point;
+    Point2D& leftP = left->point;
+    Point2D& rightP = right->point;
     float cross_origin = leftP.X * rightP.Y - leftP.Y * rightP.X;
     if (cross_origin > 0.0f) {
         // points are anti clockwise; swap them
@@ -140,28 +140,20 @@ void calculate_angle_and_direction(float attenuatioNew,float max_Dist, float str
         rightP = left->point;
     }
 
-    Point2D ref_v = sub(rightP,leftP);   
-    Point2D ref_vn = normalize(ref_v);
+    Point2D ref_vn = normalize(sub(rightP,leftP));
     Point2D ref_midPoint = mul(add(rightP,leftP),0.5);  
-    float ref_midPointMag = mag(ref_midPoint);
+
+    float distanceToLine =  (cross_scalar( sub(midPoint,ref_midPoint) ,ref_vn) * attenuatioNew)* ( 1-strengthAdj) ;
+
+    dist = mul(normalize(ref_midPoint),distanceToLine); 
     
-    Point2D ref_n =  normal_ccw(ref_vn);        
-
-    Point2D midPointDiff =    sub(midPoint,ref_midPoint) ;    
-
-    float distanceToLine =  (cross_scalar(midPointDiff,ref_vn) * attenuatioNew)* ( 1-strengthAdj) ;
-
-
-    Point2D ref_midPoint_normed = div(ref_midPoint,ref_midPointMag);
-    dist = mul(ref_midPoint_normed,distanceToLine); 
-    
-    float norm_angle =  angleBetween(n,ref_n);    
+    float norm_angle =  angleBetween(n,normal_ccw(ref_vn));    
     float normal_angle_error = norm_angle*norm_angle ; //smaller better
     angle=norm_angle * ( 1-strengthAdj) ;   
 
     float distanceRemainingRatio = distanceToLine/max_Dist; //smaller better
     distanceRemainingRatio*= distanceRemainingRatio;
-    distance_error =   std::fmax(0.0001f, normal_angle_error  + distanceRemainingRatio  +   strengthAdj);      
+    distance_error =  normal_angle_error  + distanceRemainingRatio  +   strengthAdj;      
     angle_error =  std::fmax(0.01f, normal_angle_error +   strengthAdj);
    
 }
@@ -171,7 +163,7 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
     float cross_origin = nl.X *nr.Y - nl.Y * nr.X;
     if (cross_origin > 0.0f) {
         // points are anti clockwise; swap them
-        Point2D tmp =nl;
+        Point2D& tmp =nl;
        nl= nr;
        nr = tmp;
       //  serialPrintf2("new swap points");
@@ -210,8 +202,6 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
     int prev_left_index = index;
     float old_sample_step_size = est_dist_ratio * RESOLUTION;
     
-     float distanceRatio = magMidp/max_dist;
-     distanceRatio *= distanceRatio;
     for (int i = 1; i <searchSize; i++)
     {                  
         float nextRightAngle = initialAngle + old_sample_step_size*i;
@@ -221,12 +211,12 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
             rightIndex -= N_POINTS;
         }
 
+        float error;
+        float angle;
+        Point2D dist;
         ArcNode* right = (old_nodes + rightIndex);
         if(right->dist && prev_right->dist)
         {
-            float error;
-            float angle;
-            Point2D dist;
             calculate_angle_and_direction(attenuationNew,max_dist,strengthAdj,n,midPoint,prev_right,right,angle_error,distance_error,angle,dist,maxAngle);
        
               if( (distance_error  < best_dist_error ) && fabs(angle)<maxAngle)
@@ -254,9 +244,6 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
         ArcNode* left = (old_nodes + leftIndex);
          if(left->dist && prev_left->dist )
         {
-            float error;
-            float angle;
-            Point2D dist;
             calculate_angle_and_direction(attenuationNew,max_dist, strengthAdj,n,midPoint,left,prev_left,angle_error,distance_error,angle,dist,maxAngle);
      
             if( (distance_error  < best_dist_error ) && fabs(angle)<maxAngle)
@@ -267,7 +254,8 @@ int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl,
                 bestAngle=angle - (i-1) * old_sample_step_size;    
                 bestDist = dist;
                 if(best_dist_error < 0.001)
-                        break;
+                    break;
+                
             }
            
             prev_left = left;
@@ -355,61 +343,54 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
     for(unsigned short i=0;i<N_POINTS;i++)
     {
         ArcNode* new_node = new_nodes+i;
-        if(new_node->dist )
-        {   
-             float new_angle ;
-            if(new_node->angle >= M_PIF)
-            {
-                new_angle =(new_node->angle-M_2PI);
-            }
-            else
-            {
-                new_angle =new_node->angle;
-            }
-         
-                            
-            ArcNode* next_node = new_nodes + ((i + 1) % N_POINTS);
-            if(!next_node->dist)
-                continue;
+        if(!new_node->dist )
+            continue;
 
-            float next_angle = next_node->angle;
+        float new_angle = new_node->angle;
+        if(new_node->angle >= M_PIF)            
+            new_angle =(new_node->angle-M_2PI);            
+        else            
+            new_angle =new_node->angle;         
+                        
+        ArcNode* next_node = new_nodes + ((i + 1) % N_POINTS);
+        if(!next_node->dist)
+            continue;
+
+        float next_angle = next_node->angle;
+    
         
-            
-            Point2D new_point = toPoint2D(new_angle,new_node->dist);
-            int oldIndex = toIndex(new_angle,N_POINTS);
-            float oldDist = mag(old_nodes[oldIndex].point);
-            float est_dist_ratio = oldDist >0 ? mag(new_point)/oldDist : 1.0;
+        int oldIndex = toIndex(new_angle+angleGuess,N_POINTS);
+        float oldDist = old_nodes[oldIndex].dist;
+        float est_dist_ratio =  new_node->dist/oldDist;
+        float cos_f = cosf(angleGuess);
+        float sin_f = sinf(angleGuess);
+        Point2D expected_old_frame_point = rotate(sub(new_node->point ,guess),cos_f,sin_f);    
+        Point2D expected_next_old_frame_point = rotate(sub(next_node->point ,guess),cos_f,sin_f);  
 
-            Point2D expected_old_frame_point = rotate(sub(new_point ,guess),-angleGuess);                             
+        float matchAngle = (angleGuess);
+        Point2D matchdist = {0,0};
+        float angle_error=0;
+        float distance_error=0;
+        int index = findAngleAndDistanceOffset(max_dist, est_dist_ratio,expected_old_frame_point,expected_next_old_frame_point,old_nodes, new_angle+angleGuess ,matchAngle,matchdist,searchRange,angle_error,distance_error,maxAngle);
+        
+        if(index>=0)
+        {   
+            float res = mag(matchdist);
+            if(res>1 && res < 200)
+            {
+                totalDistResidual += res;
+            }
             
-            Point2D next_point = toPoint2D(next_angle,next_node->dist);
-            Point2D expected_next_old_frame_point = rotate(sub(next_point ,guess),-angleGuess);  
-
-            float matchAngle = (angleGuess);
-            Point2D matchdist = {0,0};
-            float angle_error=0;
-            float distance_error=0;
-            int index = findAngleAndDistanceOffset(max_dist, est_dist_ratio,expected_old_frame_point,expected_next_old_frame_point,old_nodes, new_angle ,matchAngle,matchdist,searchRange,angle_error,distance_error,maxAngle);
-           
-            if(index>=0)
-            {   
-                float res = mag(matchdist);
-                if(res>1 && res < 200)
-                {
-                    totalDistResidual += res;
-                }
-                
-                float angle_weight = angle_error == 0 ? 0 : 1/angle_error  ;
-                float distance_weight =distance_error == 0 ? 0 : 1/distance_error;
-               
-                weightedAngles[aCount] = {matchAngle,angle_weight};   
+            float angle_weight = angle_error == 0 ? 0 : 1/angle_error  ;
+            float distance_weight =distance_error == 0 ? 0 : 1/distance_error;
             
-                total.X += matchdist.X * distance_weight;                           
-                total.Y += matchdist.Y * distance_weight;
-                
-                total_distance_weight += distance_weight;        
-                aCount++;                    
-            }            
+            weightedAngles[aCount] = {matchAngle,angle_weight};   
+        
+            total.X += matchdist.X * distance_weight;                           
+            total.Y += matchdist.Y * distance_weight;
+            
+            total_distance_weight += distance_weight;        
+            aCount++;                    
         }
     }
   
@@ -429,29 +410,8 @@ Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,Point2D guess,floa
     }
      if(total_angle_weight > 0)
      { 
-        angle_diff /= total_angle_weight;    
-        // if(angle_diff < 0)
-        // {
-        //     angle_diff = -abs_angle_diff / total_angle_weight;
-        // }
-        // else
-        // {
-        //     angle_diff = abs_angle_diff / total_angle_weight;
-        // }
+        angle_diff /= total_angle_weight;  
      }
-    // if(fabs(angle_diff) < 0.00004)
-    // {
-    //       serialPrintf2("print angles");
-    //     for( int i=0;i<aCount;i++)
-    //     {
-    //         serialPrintf2("a:%.6f, w:%.6f",weightedAngles[i].angle,weightedAngles[i].weight);
-    //     }
-    //     serialPrintf2("print filtered angles");
-    //     for( int i=0;i<aCount;i++)
-    //     {
-    //         serialPrintf2("a:%.6f, w:%.6f",angles[i],weights[i]);
-    //     }
-    // }
     return total;
 }
 
@@ -510,7 +470,7 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
         pos.Y = PIDUpdate(&pid_y,-error.Y,pos.Y); 
         pos.X = PIDUpdate(&pid_x,-error.X,pos.X); 
      
-        serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
+        //serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
         if(fabs(error.X) < pid_x.deadband && fabs(error.Y) < pid_y.deadband && fabs(error_angle) < 0.0001 )
         {
             break;

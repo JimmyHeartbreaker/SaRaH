@@ -344,7 +344,7 @@ std::vector<ArcNode> generateSlopedWallScan(
         if(dist < 500)
         {
         nodes[i].angle = toAngle(i,n_POINTS);// fmodf(theta + 2 * M_PI, 2 * M_PI);
-        nodes[i].point = p;
+        nodes[i].point = toPoint2D(nodes[i].angle ,dist);
         nodes[i].dist =dist;
         }
     }
@@ -406,6 +406,10 @@ float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float
         //     break;
         // }
 	}
+    if(iter==0)
+    {
+        std::cout << "iter 0 \n ";
+    }
      std::cout << "\n test starting " << testnum;
     float asDegrees = angleDiff * 180/M_PI;
     if(fabs(asDegrees + yaw) > 0.25)
@@ -417,7 +421,7 @@ float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float
       //   std::cout << "\nangle succeeeded \n[input]" << yawMovement << " [output]" << asDegrees;
     }
     diff.X =0; // the single slopy environment prevents us from determining x position so, it slides around
-    if(fabs(fabs(yMovement) - mag(diff)) > 1)
+    if(fabs(fabs(yMovement) - mag(diff)) > 0.25)
     {
          std::cout << "\nmovement failed \n[input] " << yMovement << " [output] " << mag(diff) << " wall angle " << wallAngleDeg << " yaw " << yaw;
     }
@@ -464,7 +468,7 @@ void rotate_test()
 }
 int main()
 {
-    //move_and_rotate_test();
-    rotate_test();
+ move_and_rotate_test();
+   // rotate_test();
     return 0;
 }

@@ -37,7 +37,7 @@ class Sarah:
     
     d_x = 0
     d_y = 0
-    d_rot =0
+    d_rot =0.78
 
 
 sarah_inst = Sarah()

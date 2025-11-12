@@ -193,8 +193,8 @@ Transform ResolveRotation(ArcNode* nodes,float& confidence)
 
 Transform EstimateTranslation(float x, float y, float yaw,float& confidence)
 {
-	avg_pos = {-x,-y};
-	avg_yaw = -yaw;
+	avg_pos = {x,y};
+	avg_yaw = yaw;
 	ArcNode nodes_now[N_POINTS];
 	getFilteredSnapshot(nodes_now);
 	return ResolveXY(nodes_now,confidence );
