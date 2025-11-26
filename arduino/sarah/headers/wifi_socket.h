@@ -8,7 +8,7 @@
 // ============================================================
 
 #define LUCAS_WIFI_SSID "Galaxy"//"VM0685951"// "Vodafone701713"         // open network
-#define LUCAS_HOST_IP    "172.28.140.75"//"192.168.1.148"    // your PC IP
+#define LUCAS_HOST_IP    "10.219.138.75"//"192.168.1.148"    // your PC IP
 #define LUCAS_PORT        9000
 #define LUCAS_PASSWORD "zyebbrtbHT7tyqc6" //  "zyebbrtbHT7tyqc6"
 

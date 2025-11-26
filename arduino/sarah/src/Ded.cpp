@@ -93,7 +93,7 @@ bool TryMakeRefScan()
 	if(dataCount < 50)
 		return false;
 	int zeros = CountZeros(nodes_cur);
-	if(zeros > 130)
+	if(zeros > 400)
 	{
 		WIFI_MPI::Printf("> INCOMPETE SCAN DETECTED, %.i ZEROS, CONTINUEING-SCAN",zeros);	
 		return false;

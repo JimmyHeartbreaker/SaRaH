@@ -29,6 +29,7 @@ from wifi import connect_wifi_windows
 from environment_display import SCREEN_SIZE, draw_lidar_pixels, update,screen
 from grid import grid_inst
 import queue
+import true_mapper
 
 data_queue = queue.Queue() 
 
@@ -128,15 +129,16 @@ def main():
             update()  
             pass       
         
-        if(sarah.sarah_inst.latest_map_part is not None)
-        {
+        if(sarah.sarah_inst.latest_map_part is not None):        
+            results  = true_mapper.true_mapper(sarah.sarah_inst.latest_map_part,0)
+            sarah.sarah_inst.latest_map_part = None
+            pass
             
             
             
             
             
-            
-        }
+        
             
 
         # Draw new points if available

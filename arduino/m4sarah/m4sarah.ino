@@ -243,6 +243,19 @@ void loop()
   if(dt<0.02)
     return;
 
+    // if(print_delay > 1)
+    // {
+    //   print_delay-=1;
+
+    //     for(int i =0;i<4;i++)
+    //     {
+    //       RPC_MPI::Print(encoders[i]->name);
+    //       RPC_MPI::Print(" COUNT:");
+    //       RPC_MPI::Print(encoders[i]->count);  
+           
+    //     } 
+
+    // }
   
   print_delay += dt;
   for(int i =0;i<4;i++)
@@ -269,8 +282,8 @@ void loop()
         
         for(int i =0;i<4;i++)
         {
-          RPC_MPI::Print("COUNT:");
-          RPC_MPI::Print(encoders[i]->total_count);  
+       //   RPC_MPI::Print("COUNT:");
+          //RPC_MPI::Print(encoders[i]->total_count);  
            
            encoders[i]->total_count = 0;
         }
@@ -325,15 +338,7 @@ void loop()
     analogWrite(HB_L_PWM_PIN, (int)left_pwm_out);
 
     
-    if(print_delay > 1)
-    {
-      print_delay-=1;
-       RPC_MPI::Print("PWM LEFT: ");
-       RPC_MPI::Print(left_pwm_out);  
-      RPC_MPI::Print("PWM right: ");
-       RPC_MPI::Print(right_pwm_out);   
 
-    }
 
     prev_micros = this_micros;
 }

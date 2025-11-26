@@ -100,6 +100,7 @@ class Sarah:
         
     def data(self,m:Message):   
         self.latest_map_part = convertToSamples(m.data)   
+        
         pass
     def pos(self,m:Message):   
         posrotconfidence = struct.unpack('<ffff',m.data)    

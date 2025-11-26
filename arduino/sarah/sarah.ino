@@ -306,15 +306,6 @@ bool send_pose(float x, float y, float rot,float confidence)
 }
 bool send_map()
 {
-  //ArcNode* refNodes = GetRefNodes();     
-           
-  // for(int i=0;i<N_POINTS;i++)
-  // {
-  //   memcpy(&points[i*8], &refNodes[i].point , 8);              
-  // }
-  // WIFI_MPI::Send(S_DATA,points,8*N_POINTS);
-  
-  //printf("refNodes sent");
 
   GetNewNodes(newNodes);
   for(int i=0;i<N_POINTS;i++)
@@ -322,11 +313,6 @@ bool send_map()
     memcpy(&points[i*8], &newNodes[i].point , 8);      
   }
 
-  // WIFI_MPI::Send(S_DATA,points,8*N_POINTS);            
-
-  //printf("newNodes sent");
-
-  //map_nodes(newNodes,(Point2D*)points,GetPos(),GetYaw(),true);
   
   return WIFI_MPI::Send(S_MAP_DATA,points,8*N_POINTS);
 }
@@ -347,106 +333,112 @@ void loop() {
   // }
   Serial.print("1");
   bool successSend=true;
-  // switch (sarah_state)
-  // {    
-  //   case BOOT:   
-  //     if(successSend = WIFI_MPI::Send(S_INIT))
-  //     {    
-  //       printf("> INIT SENT");   
-  //       next_state = INITIALIZING;
-  //       sarah_state = WAIT_ACK;    
-  //     }    
-  //     break;    
-  // case INITIALIZING:  
+  switch (sarah_state)
+  {    
+    case BOOT:   
+      if(successSend = WIFI_MPI::Send(S_INIT))
+      {    
+        printf("> INIT SENT");   
+        next_state = INITIALIZING;
+        sarah_state = WAIT_ACK;    
+      }    
+      break;    
+  case INITIALIZING:  
       
-  //     if(successSend =WIFI_MPI::Send(S_PREP))
-  //     { 
-  //       Reset(); 
-  //       next_state = PREPARING;
-  //       sarah_state = WAIT_ACK;
-  //       printf("> PREP SENT");  
-  //     } 
+      if(successSend =WIFI_MPI::Send(S_PREP))
+      { 
+        Reset(); 
+        next_state = PREPARING;
+        sarah_state = WAIT_ACK;
+        printf("> PREP SENT");  
+      } 
           
-  //   break;
-  // case PREPARING:  
-  //     if(process_lidar_feed())
-  //     {          
-  //       if(TryMakeRefScan())
-  //       {
-  //         if(successSend = WIFI_MPI::Send(S_READY))
-  //         {
-  //           next_state = READY;
-  //           sarah_state = WAIT_ACK;
-  //           printf("> READY SENT");  
-  //         }
-  //       }      
-  //     }
-  //     break;
-  // case READY:
-  //    TryMakeRefScan();
-  //    if(successSend =WIFI_MPI::Send(S_GET_CMD))
-  //     { 
-  //       next_state = MOVING;
-  //       sarah_state = WAIT_ACK;
-  //       printf("> S_GET_CMD SENT");  
-  //     } 
+    break;
+  case PREPARING:  
+      if(process_lidar_feed())
+      {          
+        if(TryMakeRefScan())
+        {
+          
+               WIFI_MPI::Printf("map sending");
+          if(send_map())
+          {
+               WIFI_MPI::Printf("map sent");
+            if(successSend = WIFI_MPI::Send(S_READY))
+            {
+              next_state = READY;
+              sarah_state = WAIT_ACK;
+              printf("> READY SENT");  
+            }
+         }
+        }      
+      }
+      break;
+  case READY:
+     TryMakeRefScan();
+     if(successSend =WIFI_MPI::Send(S_GET_CMD))
+      { 
+        next_state = MOVING;
+        sarah_state = WAIT_ACK;
+        printf("> S_GET_CMD SENT");  
+      } 
      
-  //     break; 
-  // case MOVING:
-  //   {
-  //     process_lidar_feed();
-  //     if(Serial.available())
-  //     { 
-  //       printf("> LIDAR MOVE COMPLETED");  
-  //       char c = Serial.read();//any key stroke will do
-  //       if(c)
-  //       { 
-  //         next_state = ESTIMATING;
-  //         sarah_state = ESTIMATING;
-  //       }
-  //     }
-  //     break;
-  //   }
-  // case ESTIMATING:
-  //   process_lidar_feed();
+      break; 
+  case MOVING:
+    {
+      process_lidar_feed();
+      if(Serial.available())
+      { 
+        printf("> LIDAR MOVE COMPLETED");  
+        char c = Serial.read();//any key stroke will do
+        if(c)
+        { 
+          next_state = ESTIMATING;
+          sarah_state = ESTIMATING;
+        }
+      }
+      break;
+    }
+  case ESTIMATING:
+    process_lidar_feed();
     
-  //   float confidence;
-  //   if(received_rot != 0)
-  //   {
-  //     t = EstimateRotation(received_x,received_y,received_rot,confidence);
+    float confidence;
+    if(received_rot != 0)
+    {
+      t = EstimateRotation(received_x,received_y,received_rot,confidence);
 
-  //   }
-  //   else
-  //   {
-  //     t= EstimateTranslation(received_x,received_y,received_rot,confidence);
-  //   }
-  //    next_state = SENDING_MAP;
-  //     sarah_state = SENDING_MAP;
+    }
+    else
+    {
+      t= EstimateTranslation(received_x,received_y,received_rot,confidence);
+    }
+     next_state = SENDING_MAP;
+      sarah_state = SENDING_MAP;
 		
-  //   break;
-  // case SENDING_MAP:
-  // {
-  //   WIFI_MPI::Printf("X:%.2f, Y:%.2f, Angle:%.2f, confidence:%.6f",t.Point.X,t.Point.Y,t.Angle,confidence);
-  //   if(send_map())
-  //   {
-  //     send_pose(t.Point.X,t.Point.Y,t.Angle,confidence);
+    break;
+  case SENDING_MAP:
+  {
+    WIFI_MPI::Printf("X:%.2f, Y:%.2f, Angle:%.2f, confidence:%.6f",t.Point.X,t.Point.Y,t.Angle,confidence);
+    if(send_map())
+    {
+      send_pose(t.Point.X,t.Point.Y,t.Angle,confidence);
       
-  //     if(successSend = WIFI_MPI::Send(S_READY))
-  //     {
-  //       next_state = READY;
-  //       sarah_state = WAIT_ACK;
-  //       printf("> READY SENT");  
-  //     }
-  //   }
-  //   else
-  //   {
-  //       printf(">  map send failed");  
-  //   }
-  //   break;
-  // }
-  // default:
-  //   break;
-  // }
+      if(successSend = WIFI_MPI::Send(S_READY))
+      {
+        next_state = READY;
+        sarah_state = WAIT_ACK;
+        printf("> READY SENT");  
+      }
+    }
+    else
+    {
+        printf(">  map send failed");  
+    }
+    break;
+  }
+  default:
+    break;
+  }
 
    
    
