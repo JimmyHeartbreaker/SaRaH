@@ -6,6 +6,8 @@
 #include "..\headers\sample_filter.h"
 #include "..\headers\pid_controller.h"
 #include "..\headers\arduino_ext.h"
+#include "..\headers\wifi_mpi.h"
+
 #include <Arduino.h>
 using namespace std;
 
@@ -24,7 +26,7 @@ ArcNode* GetRefNodes()
 
 __attribute__((section(".ccmram"))) ArcNode nodes_cur[N_POINTS]={0};
 
-uint8_t dataCount=0;
+short dataCount=0;
 
 
 
@@ -90,22 +92,19 @@ bool TryMakeRefScan()
 {
 	if(dataCount < 50)
 		return false;
-	printf("> TOTAL SCAN NOISE:%.2f",totalScanError);
 	int zeros = CountZeros(nodes_cur);
 	if(zeros > 130)
 	{
-		printf("> INCOMPETE SCAN DETECTED, %.i ZEROS, CONTINUEING-SCAN",zeros);	
+		WIFI_MPI::Printf("> INCOMPETE SCAN DETECTED, %.i ZEROS, CONTINUEING-SCAN",zeros);	
 		return false;
 	}
 	else if(zeros>0)
 	{		
-		printf("> PATCHING HOLES",zeros);	
+		WIFI_MPI::Printf("> PATCHING HOLES",zeros);	
 		InterpolateMissingNodes(nodes_cur);
 	}
 	
-	#ifndef TESTING
-	Serial.println("> ENVIRONMENT ANALYSIS COMPLETE");
-	#endif
+	WIFI_MPI::Printf("> ENVIRONMENT ANALYSIS COMPLETE");
 	
 	getFilteredSnapshot(nodes_ref);
 	FindWalls(nodes_ref,prevWalls);
@@ -159,6 +158,7 @@ void RefUpdate()
 }
 Transform ResolveXY(ArcNode* nodes,float& confidence )
 {
+	Point2D heading = normalize(Point2D({-avg_pos.X,-avg_pos.Y}));
 	// const char nReadings=10;
 	// Point2D total;
 	// Point2D prev = avg_pos;
@@ -168,7 +168,7 @@ Transform ResolveXY(ArcNode* nodes,float& confidence )
 		bool success;
 		//do
 		//{
-			success = find_pos(nodes,nodes_ref,avg_pos,avg_yaw,total_residual);
+			success = find_pos(nodes,nodes_ref,avg_pos,avg_yaw,total_residual,heading);
 			serialPrintf("total r:%.6f",total_residual);
 		//} while (total_residual > 15000);
 		
@@ -183,7 +183,7 @@ Transform ResolveXY(ArcNode* nodes,float& confidence )
 Transform ResolveRotation(ArcNode* nodes,float& confidence)
 {
 
-	float total_residual;
+	float total_residual;	
 	find_yaw(nodes,nodes_ref,avg_pos,avg_yaw,total_residual);
 		
 	printf("X:%.2f, Y:%.2f, YAW:%.2f",avg_pos.X,avg_pos.Y,avg_yaw);
@@ -193,8 +193,8 @@ Transform ResolveRotation(ArcNode* nodes,float& confidence)
 
 Transform EstimateTranslation(float x, float y, float yaw,float& confidence)
 {
-	avg_pos = {x,y};
-	avg_yaw = yaw;
+	avg_pos = {-x,-y};
+	avg_yaw = -yaw;
 	ArcNode nodes_now[N_POINTS];
 	getFilteredSnapshot(nodes_now);
 	return ResolveXY(nodes_now,confidence );
@@ -213,6 +213,8 @@ Transform EstimateRotation(float x, float y, float yaw,float& confidence)
 
 void DataIn(LidarScanNormalMeasureRaw* nodes, unsigned short nodeCount)
 {		
+	//Serial.println("data in");
+//	Serial.print(nodeCount);
 	dataCount++;
 	 totalScanError += read_scan(nodes, nodes_cur, nodeCount);	
 }

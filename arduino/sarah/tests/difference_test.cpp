@@ -384,18 +384,19 @@ float testAngleFlat(float wallAngleDeg,float wallAngleDist,float yMovement,float
 		Point2D diff = {0,0};
     int iter = 1000;
     Point2D newdiff;
+    Point2D heading = {0,1};
     float yawAsRadians = yaw*M_PI/180;
     float total_resid;
 	while(iter>0)
 	{
         float ad=0;
         float angle_diff_t=0;
-		newdiff = sum_difference(new_nodesa,new_nodesb,diff,angleDiff,angle_diff_t,1.57,total_resid,searchSize);
+		newdiff = sum_difference(new_nodesa,new_nodesb,diff,angleDiff,angle_diff_t,1.57,total_resid,heading,searchSize);
         diff.Y += -newdiff.Y / 10;
         diff.X += -newdiff.X / 100;//  add(diff,div(newdiff,10.0f));
        
         angleDiff -= angle_diff_t/10;
-        if(mag(newdiff) < 0.001 && fabs(angle_diff_t) < 0.001  )
+        if(mag(newdiff) < 0.01 && fabs(angle_diff_t) < 0.001  )
         {
             break;
         }
@@ -469,6 +470,6 @@ void rotate_test()
 int main()
 {
  move_and_rotate_test();
-   // rotate_test();
+ //   rotate_test();
     return 0;
 }

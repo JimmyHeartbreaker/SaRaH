@@ -1,0 +1,7 @@
+{
+    "configuration": "target_core=cm4,split=75_25",
+    "board": "arduino:mbed_giga:giga",
+    "sketch": "arduino\\m4sarah\\m4sarah.ino",
+    "port": "COM8",
+    "output": "../buildm4"
+}

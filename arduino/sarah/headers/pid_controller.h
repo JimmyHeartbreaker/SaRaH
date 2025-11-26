@@ -33,7 +33,7 @@ inline float angleDiffFast(float a, float b) {
 	d -= M_2PI * std::floor((d + M_PI_F) * INV_TWO_PI);
 	return d;
 }
-bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual);
+bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual,const Point2D& heading);
 bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual);
 float read_scan(
     LidarScanNormalMeasureRaw* nodes,
@@ -42,7 +42,7 @@ float read_scan(
     float new_weight = 1.0f,
     bool calculatePoints = false);
 
-Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,const Point2D& guess,float angleGuess,float& angle_diff,float  maxAngle,float& total_residual, int searchRange=3);
+Point2D sum_difference(ArcNode* new_nodes, ArcNode* old_nodes,const Point2D& guess,float angleGuess,float& angle_diff,float  maxAngle,float& total_residual,const Point2D& heading, int searchRange=3);
 
 Point2D* map_nodes(ArcNode* nodes,Point2D* dst, Point2D trans, float rot, bool onlyVisible=true);
 #endif

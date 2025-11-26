@@ -1,7 +1,9 @@
-#include "../headers/lucas_client.h"
+#include "../headers/wifi_socket.h"
+#include <WiFi.h> 
 #include "mbed.h"
 #include "WiFiInterface.h"
 #include "TCPSocket.h"
+ // or WiFiS3.h depending on your board
 // Global WiFi client
 
 // Reconnection timing
@@ -17,9 +19,10 @@ static const unsigned long CONNECT_RETRY_MS = 5000;
 void setup_lucas_client() {
   Serial.println();
   Serial.println("[lucas_client] Starting...");
-
+ 
   connectToWiFi();
-
+  
+  tryConnectToServer();
   lastConnectAttempt = 0;
 }
 
@@ -41,7 +44,11 @@ bool send_bytes(const uint8_t *data, size_t len, unsigned long timeoutMs) {
 
     size_t to_send = min((size_t)CHUNK_SIZE, len - sent);
     size_t written = base_socket.sendto(server,data + sent, to_send);
-      
+    if(written == NSAPI_ERROR_WOULD_BLOCK)
+    {
+       delay(50);
+       continue;
+    }
     if (written <= 0 ) {
       if (millis() - start > timeoutMs) {
         Serial.println("[wifi] write stalled, aborting");
@@ -83,10 +90,11 @@ int connectToWiFi() {
      nsapi_error_t ret ;
     do
     {
-      ret = wifi->connect(LUCAS_WIFI_SSID,LUCAS_PASSWORD, NSAPI_SECURITY_WPA_WPA2 );
+      ret = wifi->connect(LUCAS_WIFI_SSID,LUCAS_PASSWORD, NSAPI_SECURITY_NONE);//WPA_WPA2 );
      if (ret != 0) {
         Serial.println("Wi-Fi connection failed\n");
-        delay(1000);
+        Serial.print(ret);
+        delay(100);
     }
       /* code */
     } while (ret!=0);
@@ -102,8 +110,18 @@ int connectToWiFi() {
 // {
 //     WiFiInterface *wifi = WiFiInterface::get_default_instance();
 
+void close()
+{
+  base_socket.close();
+}
 // }
 int tryConnectToServer() {
+  
+  // SocketAddress address;
+  // if(base_socket.getpeername(&address) == NSAPI_ERROR_OK)
+  //   return 1;
+  
+  connectToWiFi();
 
   Serial.println("tryConnectToServer");
     WiFiInterface *wifi = WiFiInterface::get_default_instance();
@@ -118,18 +136,20 @@ int tryConnectToServer() {
    // printf("Resolved server:", server.get_ip_address(), server.get_port());
 
     base_socket.open(wifi);
-
+    base_socket.set_blocking(false);
+    base_socket.set_timeout(200); 
     // Retry connection
     for (int attempts = 0; attempts < 5; attempts++) {
         ret = base_socket.connect(server);
         if (ret == NSAPI_ERROR_OK) {
             Serial.println("Connection success!");
-            break;
+            return 1;
         } else {
             Serial.println("Connection failed");
                delay(1000);
         }
     }
+    return -1;
     
   
 }

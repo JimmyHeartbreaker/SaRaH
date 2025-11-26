@@ -16,6 +16,11 @@ typedef struct Point2D
     float Y;
 } __attribute__((packed)) Point2D;
 
+static inline float size(const Point2D& p)
+{
+    return p.Y*p.Y + p.X*p.X;
+}
+
 static inline float mag(const Point2D& p)
 {
     return pow(p.Y*p.Y + p.X*p.X, 0.5);
@@ -44,7 +49,6 @@ static inline float cross_scalar(const Point2D& a,const Point2D& b)
 {
     return  a.X * b.Y - a.Y * b.X;
 }
-
 
 
 static inline float dot(const Point2D& a,const Point2D& b)
@@ -79,6 +83,11 @@ static inline Point2D toPoint2D(float angle, float dist)
 static unsigned short  toIndex(float angle,int nPoints)
 {
 	return  (unsigned short )(std::round((angle/M_2PI ) * nPoints) + nPoints )%nPoints;
+}
+
+static unsigned short  toIndexFloor(float angle,int nPoints)
+{
+	return  (unsigned short )(std::floor((angle/M_2PI ) * nPoints) + nPoints )%nPoints;
 }
 static inline float toAngle(unsigned short index,int nPoints)
 {

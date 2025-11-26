@@ -56,7 +56,7 @@ pid_state pid_rotate_translate =
         0.0, //prev error
     };
 
-const float kp_y = 0.6f;
+const float kp_y = 0.05f;
 pid_state pid_y = 
     { 
         kp_y,  //kp
@@ -66,12 +66,12 @@ pid_state pid_y =
         -2000, //min dist
         0.1f, //dt
         1, //Tt
-        0.01,  //deadband
+        0.001,  //deadband
         0.0, //integral
         0.0, //prev error
     };
 
-    const float kp_x = 0.6f;
+    const float kp_x = 1.0f;
 pid_state pid_x = 
     { 
         kp_x,  //kp
@@ -81,11 +81,11 @@ pid_state pid_x =
         -2000, //min dist
         0.1f, //dt
         1, //Tt
-        0.01,  //deadband
+        0.001,  //deadband
         0.0, //integral
         0.0, //prev error
     };
-const float kp_translate_rotate = 0.3f;
+const float kp_translate_rotate = 0.1f;
 pid_state pid_translate_rotate = 
     { 
         kp_translate_rotate,  //kp
@@ -129,142 +129,194 @@ float PIDUpdate(pid_state* pid, float y,float prev_input)
 	return new_input;
 }
 
-void calculate_angle_and_direction(float attenuatioNew,float max_Dist, float strengthAdj,const Point2D& n,const Point2D& midPoint,ArcNode* left, ArcNode* right,float& angle_error,float& distance_error,float& angle,Point2D& dist)
+struct ScanResult
+{
+    float angle_error;
+    float angle;
+    Point2D distance_error;
+    Point2D distance;
+};
+
+
+inline void calculate_angle_and_direction(float attenuatioNew,float avg_dist_inv, float strengthAdj,const Point2D& n,const Point2D& midPoint,ArcNode* ref_left, ArcNode* ref_right,ScanResult& scanResult,const Point2D& heading )
 { 
-    Point2D& leftP = left->point;
-    Point2D& rightP = right->point;
-    float cross_origin = leftP.X * rightP.Y - leftP.Y * rightP.X;
-    if (cross_origin > 0.0f) {
-        // points are anti clockwise; swap them
-        leftP = right->point;
-        rightP = left->point;
-    }
-
-    Point2D ref_vn = normalize(sub(rightP,leftP));
+      Point2D& leftP = ref_left->point;
+    Point2D& rightP = ref_right->point;
+   
+   
+    Point2D ref_v = sub(rightP,leftP);
     Point2D ref_midPoint = mul(add(rightP,leftP),0.5);  
-
-    float distanceToLine =  (cross_scalar( sub(midPoint,ref_midPoint) ,ref_vn) * attenuatioNew)* ( 1-strengthAdj) ;
-
-    dist = mul(normalize(ref_midPoint),distanceToLine); 
+    float ref_midPointmag = mag(ref_midPoint);
+    Point2D vectorAlong = div(ref_midPoint,ref_midPointmag);
+  
     
-    float norm_angle =  angleBetween(n,normal_ccw(ref_vn));    
+   
+    float distanceToLine =  (cross_scalar( sub(midPoint,ref_midPoint) ,normalize(ref_v)) * attenuatioNew)* ( 1-strengthAdj) ;
+    
+    float errorToheading = dot(heading,vectorAlong);
+        scanResult.distance = mul(normalize(ref_midPoint),distanceToLine); 
+    //if(errorToheading < 0 && ref_midPointmag < 10)
+   // {
+      //  scanResult.distance = mul(normalize(ref_midPoint),-distanceToLine); 
+        // if(heading.X==0)
+        // {
+        //     scanResult.distance.Y = -scanResult.distance.Y;
+        // }
+        // else
+        // {
+        //     scanResult.distance.X = -scanResult.distance.X;
+        // }
+   // }
+    float invErrorToheading = 1 - errorToheading;
+    errorToheading *= errorToheading;
+    invErrorToheading *= invErrorToheading;
+   //  serialPrintf2("X:%.6f, Y:%.6f",scanResult.distance.X,scanResult.distance.Y);  
+    
+    
+    float norm_angle =  angleBetween(n,normal_ccw(ref_v));    
     float normal_angle_error = norm_angle*norm_angle ; //smaller better
-    angle=norm_angle * ( 1-strengthAdj) ;   
+    scanResult.angle=norm_angle * ( 1-strengthAdj) ;   
 
-    float distanceRemainingRatio = distanceToLine/max_Dist; //smaller better
+    float distanceRemainingRatio = distanceToLine * avg_dist_inv; //smaller better
     distanceRemainingRatio*= distanceRemainingRatio;
-    distance_error =  normal_angle_error  + distanceRemainingRatio  +   strengthAdj;      
-    angle_error =  std::fmax(0.01f, normal_angle_error +   strengthAdj);
+    scanResult.distance_error.Y =   distanceRemainingRatio  +   strengthAdj + errorToheading;     
+    scanResult.distance_error.X = std::fmax(0.01f,  normal_angle_error  + distanceRemainingRatio  +   strengthAdj + invErrorToheading);      
+    scanResult.angle_error =   normal_angle_error +   strengthAdj;
+
+//      Point2D& leftP = ref_left->point;
+//      Point2D& rightP = ref_right->point;
+//     // float cross_origin = leftP.X * rightP.Y - leftP.Y * rightP.X;
+//     // if (cross_origin > 0.0f) {
+//     //     // points are anti clockwise; swap them
+//     //     leftP = ref_right->point;
+//     //     rightP = ref_left->point;
+//     //     Serial.println("swap1");
+//     // }
+
+//     Point2D ref_v = sub(rightP,leftP);
+//     Point2D ref_midPoint = mul(add(rightP,leftP),0.5);  
+//   //  float midPM = size(midPoint);
+//     float ref_midpm = mag(ref_midPoint);
+//     float distanceToLine = (cross_scalar( sub(midPoint,ref_midPoint) , normalize(ref_v)) * attenuatioNew)* ( 1-strengthAdj) ;
+//     
+
+//     //  if(midPM < (ref_midpm))
+//     //  {
+//         scanResult.distance = mul(vectorAlong,distanceToLine); 
+//     //  }
+//     //  else
+//     //  {
+//     //      scanResult.distance = mul(vectorAlong,-fabs(distanceToLine)); 
+//     //  }
+
+//     float norm_angle =  angleBetween(n,normal_ccw(ref_v));    
+//     float normal_angle_error = norm_angle*norm_angle ; //smaller better
+//      scanResult.angle=norm_angle * ( 1-strengthAdj) ;   
+
+//     float distanceRemainingRatio = distanceToLine * avg_dist_inv; //smaller better
+//     distanceRemainingRatio*= distanceRemainingRatio;
+//     scanResult.distance_error =  normal_angle_error +   distanceRemainingRatio  +   strengthAdj + errorToheading;   
+
+//    // serialPrintf2("error x:%.6f, weight x:%.6f",scanResult.distance.X,scanResult.distance_error);   
+//     scanResult.angle_error =  std::fmax(0.01f, normal_angle_error +   strengthAdj + errorToheading);
    
 }
 
-int findAngleAndDistanceOffset(float max_dist, float est_dist_ratio,Point2D& nl, Point2D& nr, ArcNode* old_nodes,float sample_angle, float& adjust_angle,Point2D& bestDist, int searchSize,float& angle_error, float& distance_error,float maxAngle, float recipMaxAngle)
+int findAngleAndDistanceOffset(float avg_dist_inv, float est_dist_ratio,Point2D& nl, Point2D& nr, ArcNode* old_nodes,float sample_angle, int searchSize,ScanResult& bestScanResult,float maxAngle, float recipMaxAngle,const Point2D& heading)
 {
-    float cross_origin = nl.X *nr.Y - nl.Y * nr.X;
-    if (cross_origin > 0.0f) {
-        // points are anti clockwise; swap them
-        Point2D& tmp =nl;
-       nl= nr;
-       nr = tmp;
-      //  serialPrintf2("new swap points");
-    }
-
     Point2D v = sub(nr,nl);
-    Point2D vn = normalize(v);
+    
     Point2D midPoint = mul(add(nl,nr),0.5);
     float magMidp = mag(midPoint);
-    Point2D midPoint_norm = div(midPoint,magMidp);  
 
-    Point2D n = normal_ccw(vn);
+    Point2D n = normal_ccw(v);
     
-     float nmp_angle = angleBetween(n,midPoint_norm);     
+     float nmp_angle = angleBetween(n,midPoint);     
     #ifdef TESTING
    float attenuationNew=1.0;//no lighting attenuaton in simulation
    #else
     float attenuationNew = 1-fabs(nmp_angle);
     #endif   
     
-    float segmentSize =mag(v);
-    float segmentSizeWeight = (1-magMidp/ (segmentSize+magMidp));
+    float segmentSizeWeight = (1-magMidp/ (mag(v)+magMidp));
 
     float strengthAdj = segmentSizeWeight * (1- fmax(0,maxAngle-fabs(nmp_angle)) * recipMaxAngle);
-    strengthAdj *=strengthAdj;
-    float best_angle_error = 1000000;        
-    float best_dist_error = 1000000;        
+    strengthAdj *=strengthAdj;      
     float initialAngle=sample_angle * est_dist_ratio;
     short index =  toIndex(initialAngle ,N_POINTS);
     
     short bestIndex =-1;
-    float bestAngle=0;
     ArcNode* prev_left = old_nodes + index;
     ArcNode* prev_right = prev_left;
     int prev_right_index = index;
     int prev_left_index = index;
     float old_sample_step_size = est_dist_ratio * RESOLUTION;
-    
+    ScanResult scanResult;
+
     for (int i = 1; i <searchSize; i++)
     {                  
         float nextRightAngle = initialAngle + old_sample_step_size*i;
-        int rightIndex =  std::fmax(prev_right_index+1,toIndex(nextRightAngle ,N_POINTS));
+        int rightIndex = toIndex(nextRightAngle ,N_POINTS);
+        if(rightIndex == prev_right_index)
+            rightIndex++;
+
         if (rightIndex >= N_POINTS)
         {
             rightIndex -= N_POINTS;
         }
 
-        float error;
-        float angle;
-        Point2D dist;
         ArcNode* right = (old_nodes + rightIndex);
+        #ifdef TESTING
         if(right->dist && prev_right->dist)
         {
-            calculate_angle_and_direction(attenuationNew,max_dist,strengthAdj,n,midPoint,prev_right,right,angle_error,distance_error,angle,dist);
+        #endif
+            calculate_angle_and_direction(attenuationNew,avg_dist_inv,strengthAdj,n,midPoint,prev_right,right,scanResult,heading);
        
-              if( (distance_error  < best_dist_error ) && fabs(angle)<maxAngle)
+              if( (scanResult.distance_error.X + scanResult.distance_error.Y    < bestScanResult.distance_error.X + bestScanResult.distance_error.Y  ) && fabs(scanResult.angle)<maxAngle)
                 {
-                    bestIndex = (rightIndex);//always return the right most index                
-                    best_angle_error =  angle_error ;
-                    best_dist_error = distance_error;
-                    bestAngle= angle+  (i-1) * old_sample_step_size;     
-                    bestDist = dist;
-                    if(best_dist_error < 0.001)
-                        break;
+                    bestIndex = (rightIndex);//always return the right most index       
+                    bestScanResult = scanResult;    
+                    bestScanResult.angle= scanResult.angle+  (i-1) * old_sample_step_size;     
+                    
                 }
             
             prev_right = right;
             prev_right_index = rightIndex;
+        #ifdef TESTING
         }
+        #endif
 
          float nextLeftAngle = initialAngle - old_sample_step_size*i;
-        int leftIndex =  std::fmin(prev_left_index-1,toIndex(nextLeftAngle ,N_POINTS));
+        int leftIndex = toIndex(nextLeftAngle ,N_POINTS);
+        if(leftIndex == prev_left_index)
+            leftIndex--;
         if (leftIndex < 0)
         {
             leftIndex += N_POINTS;
         }        
        
         ArcNode* left = (old_nodes + leftIndex);
+        #ifdef TESTING
          if(left->dist && prev_left->dist )
         {
-            calculate_angle_and_direction(attenuationNew,max_dist, strengthAdj,n,midPoint,left,prev_left,angle_error,distance_error,angle,dist);
+        #endif
+            calculate_angle_and_direction(attenuationNew,avg_dist_inv, strengthAdj,n,midPoint,left,prev_left,scanResult,heading);
      
-            if( (distance_error  < best_dist_error ) && fabs(angle)<maxAngle)
+            if( (scanResult.distance_error.X + scanResult.distance_error.Y    < bestScanResult.distance_error.X + bestScanResult.distance_error.Y  ) && fabs(scanResult.angle)<maxAngle)
             {
                 bestIndex = (rightIndex);//always return the right most index                
-                best_angle_error =  angle_error ;
-                best_dist_error = distance_error  ;
-                bestAngle=angle - (i-1) * old_sample_step_size;    
-                bestDist = dist;
-                if(best_dist_error < 0.001)
-                    break;
+                bestScanResult = scanResult;    
+                bestScanResult.angle= scanResult.angle - (i-1) * old_sample_step_size;    
+              
                 
             }
            
             prev_left = left;
             prev_left_index = leftIndex;
+        #ifdef TESTING
         }      
+        #endif
     }
-    angle_error =  best_angle_error;
-    distance_error = best_dist_error;
-    adjust_angle = bestAngle;
     return (bestIndex);
 }
 struct WeightedAngle {
@@ -272,7 +324,56 @@ struct WeightedAngle {
     float weight;
 };
 
-void removeOutliersMAD(WeightedAngle* data,float* angles,float* weights, int size, float thresh = 2.0f) 
+
+void removeOutliersPointMAD(float* values, int size, float thresh = 3.0f) 
+{    
+    float total=0;
+    float temp[N_POINTS] = {0}; 
+    for (size_t i = 0; i < size; i++)
+    {
+        temp[i] = values[i];
+        total += values[i];
+    }
+
+    std::nth_element(temp, temp + size/2, temp+size,
+          [](const float& a, const float& b) {
+              return a < b;
+          });
+
+    float median = temp[size/ 2];
+
+    // Compute absolute deviations
+    if(median < -0.1 && total < 0)
+    {
+        for (int i =0;i<size;i++)
+        {
+            if(values[i] > 0)
+            {
+                values[i] = 0;
+            }
+        }
+    }
+    else if(median > 0.1 && total > 0)
+    {
+        for (int i =0;i<size;i++)
+        {
+            if(values[i] < 0)
+            {
+                values[i] = 0;
+            }
+        }
+    }
+    // for (int i =0;i<size;i++)
+    // {
+
+    //     float modified_z = 0.6745f * (values[i]- median) / mad;
+    //     if (std::fabs(modified_z) >= thresh)
+    //     {
+    //         values[i] = 0;
+    //     }
+    // }
+}
+void removeOutliersMAD(WeightedAngle* data, int size, float thresh = 2.0f) 
 {    
     float temp[N_POINTS]; 
     for (size_t i = 0; i < size; i++)
@@ -295,35 +396,23 @@ void removeOutliersMAD(WeightedAngle* data,float* angles,float* weights, int siz
 
     float mad = temp[size / 2];
     if(mad==0)
-    {
-         for (int i =0;i<size;i++)
-        {
-            angles[i] = data[i].angle;
-            weights[i] = data[i].weight;           
-        }
+    {        
         return;
     }
 
     for (int i =0;i<size;i++)
     {
         float modified_z = 0.6745f * angleDiffFast(data[i].angle , median) / mad;
-        if (std::fabs(modified_z) < thresh)
+        if (std::fabs(modified_z) >= thresh)
         {
-            angles[i] = data[i].angle;
-            weights[i] = data[i].weight;
-        }
-        else
-        {
-            angles[i] = 0;
-            weights[i] = 0;
+            data[i].angle = 0;
+            data[i].weight = 0;
         }
     }
 }
 
 WeightedAngle weightedAngles[N_POINTS] = {0};
-float angles[N_POINTS] = {0};
-float weights[N_POINTS] = {0};
-Point2D sum_difference(ArcNode* __restrict  new_nodes, ArcNode* __restrict  old_nodes,const Point2D& guess,float angleGuess,float& angle_diff,float  maxAngle,float& totalDistResidual, int searchRange)
+Point2D sum_difference(ArcNode* __restrict  new_nodes, ArcNode* __restrict  ref_nodes,const Point2D& guess,float angleGuess,float& angle_diff,float  maxAngle,float& totalDistResidual,const Point2D& heading, int searchRange)
 {
     float recipMaxAngle  = 1.0f/maxAngle;
     int aCount=0;
@@ -331,83 +420,100 @@ Point2D sum_difference(ArcNode* __restrict  new_nodes, ArcNode* __restrict  old_
     float prevAngleDiff = angle_diff;
     angle_diff = 0;
     totalDistResidual = 0;
-    Point2D total = {0,0};
-    float total_distance_weight=0;
+    Point2D total = {0,0};    
+    float total_distance_x_weight=0;
+    float total_distance_y_weight=0;
     float total_angle_weight=0;
-    float max_dist =0;
+    float avg_dist_inv =0;
     for(int i =0;i<N_POINTS;i++)
     {
-        max_dist += old_nodes[i].dist;
+        avg_dist_inv += ref_nodes[i].dist;
     }
-    max_dist /= N_POINTS;
-    
+    avg_dist_inv = N_POINTS/ avg_dist_inv;
+    float cos_f = cosf(angleGuess);
+    float sin_f = sinf(angleGuess);
     for(unsigned short i=0;i<N_POINTS;i++)
     {
-        ArcNode* new_node = new_nodes+i;
-        if(!new_node->dist )
-            continue;
-
-        float new_angle = new_node->angle;    
-                        
+        ArcNode* new_node = new_nodes+i;       
         ArcNode* next_node = new_nodes + ((i + 1) % N_POINTS);
-        if(!next_node->dist)
+        #ifdef TESTING
+        if(!next_node->dist || !new_node->dist )
             continue;
+        #endif  
 
-        float next_angle = next_node->angle;
-    
+        float next_angle = next_node->angle;    
         
-        int oldIndex = toIndex(new_angle+angleGuess,N_POINTS);
-        float oldDist = old_nodes[oldIndex].dist;
-        float est_dist_ratio =  new_node->dist/oldDist;
-        float cos_f = cosf(angleGuess);
-        float sin_f = sinf(angleGuess);
+        float new_angle = new_node->angle;    
+        int ref_index = toIndex(new_angle+angleGuess,N_POINTS);
+        float ref_dist = ref_nodes[ref_index].dist;
+        float est_dist_ratio =  ref_dist == 0 ? 1 : new_node->dist/ref_dist;
+       
         Point2D expected_old_frame_point = rotate(sub(new_node->point ,guess),cos_f,sin_f);    
         Point2D expected_next_old_frame_point = rotate(sub(next_node->point ,guess),cos_f,sin_f);  
 
-        float matchAngle = (angleGuess);
-        Point2D matchdist = {0,0};
-        float angle_error=0;
-        float distance_error=0;
-        int index = findAngleAndDistanceOffset(max_dist, est_dist_ratio,expected_old_frame_point,expected_next_old_frame_point,old_nodes, new_angle+angleGuess ,matchAngle,matchdist,searchRange,angle_error,distance_error,maxAngle,recipMaxAngle);
+        ScanResult bestScanResult;
+        bestScanResult.distance_error = {900000000,900000000};
+        int index = findAngleAndDistanceOffset(avg_dist_inv, est_dist_ratio,expected_old_frame_point,expected_next_old_frame_point,ref_nodes, new_angle+angleGuess ,searchRange,bestScanResult,maxAngle,recipMaxAngle,heading);
         
         if(index>=0)
         {   
-            float res = mag(matchdist);
+            float res = mag(bestScanResult.distance);
             if(res>1 && res < 200)
             {
                 totalDistResidual += res;
             }
             
-            float angle_weight = angle_error == 0 ? 0 : 1/angle_error  ;
-            float distance_weight =distance_error == 0 ? 0 : 1/distance_error;
+            float angle_weight = bestScanResult.angle_error == 0 ? 0 : 1/bestScanResult.angle_error  ;
+            float distance_weight_x =bestScanResult.distance_error.X == 0 ? 0 : 1/bestScanResult.distance_error.X;
+            float distance_weight_y =bestScanResult.distance_error.Y == 0 ? 0 : 1/bestScanResult.distance_error.Y;
             
-            weightedAngles[aCount] = {matchAngle,angle_weight};   
-        
-            total.X += matchdist.X * distance_weight;                           
-            total.Y += matchdist.Y * distance_weight;
-            
-            total_distance_weight += distance_weight;        
-            aCount++;                    
+            weightedAngles[aCount++] = {bestScanResult.angle,angle_weight};   
+        //    distanceWeights[aCount] =distance_weight;   
+            // xValues[aCount] =bestScanResult.distance.X;
+            // yValues[aCount] =bestScanResult.distance.Y;
+            total_distance_x_weight +=distance_weight_x;      
+            total_distance_y_weight +=distance_weight_y;      
+            total.X  += bestScanResult.distance.X * distance_weight_x;          
+            total.Y  += bestScanResult.distance.Y * distance_weight_y;          
+                             
         }
     }
   
-     if(total_distance_weight >0)
-     {
-        total.X /= total_distance_weight;
-        total.Y /= total_distance_weight;       
-     }
-    
-    removeOutliersMAD(weightedAngles,angles,weights,aCount);
-
-    
+   
+    removeOutliersMAD(weightedAngles,aCount);
     for(int i =0;i<aCount;i++)
     {
-        angle_diff += angles[i] * weights[i];
-        total_angle_weight += weights[i];
+        angle_diff += weightedAngles[i].angle * weightedAngles[i].weight;
+        total_angle_weight += weightedAngles[i].weight;
     }
      if(total_angle_weight > 0)
      { 
         angle_diff /= total_angle_weight;  
+     }
+    //  serialPrintf2("start");
+    // for(int i =0;i<aCount;i++)
+    // {
+    //     serialPrintf2("X:%.6f, Y:%.6f, W:%.6f",xValues[i],yValues[i],distanceWeights[i]);   
+    // }
+   // removeOutliersPointMAD(xValues, aCount);    
+   // removeOutliersPointMAD(yValues, aCount);
+    //  serialPrintf2("filtered");
+    // for(int i =0;i<aCount;i++)
+    // {
+    //     serialPrintf2("X:%.6f, Y:%.6f",xValues[i],yValues[i]);   
+    // }
+    // for(int i =0;i<aCount;i++)
+    // {       
+    //     total.X  += xValues[i] * distanceWeights[i];          
+    //     total.Y  += yValues[i] * distanceWeights[i];        
+    // }
+     if(total_distance_x_weight > 0)
+     { 
+        total.X /= total_distance_x_weight;  
+     }
+    if(total_distance_y_weight > 0)
+     { 
+        total.Y /= total_distance_y_weight;  
      }
     return total;
 }
@@ -446,9 +552,9 @@ Point2D* map_nodes(ArcNode* nodes,Point2D* dst, Point2D trans, float rot, bool o
     }
 }
 
-bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle, float& total_residual)
+bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle, float& total_residual,const Point2D& heading)
 {        
-    int timeout=5000;  
+    int timeout=10000;  
     
     #ifndef TESTING
     unsigned long mills_start = millis();
@@ -461,13 +567,13 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
         #endif
       
         float error_angle=0; 
-        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,2);          
+        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,heading,2);          
        
         angle = PIDUpdate(&pid_translate_rotate,-error_angle,angle); 
         pos.Y = PIDUpdate(&pid_y,-error.Y,pos.Y); 
         pos.X = PIDUpdate(&pid_x,-error.X,pos.X); 
      
-        //serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
+        serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
         if(fabs(error.X) < pid_x.deadband && fabs(error.Y) < pid_y.deadband && fabs(error_angle) < 0.0001 )
         {
             break;
@@ -479,6 +585,7 @@ bool find_pos(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos, float& angle
 
 bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle, float& total_residual)
 {
+    Point2D heading;
     int timeout=5000;  
     #ifndef TESTING
     unsigned long mills_start = millis();
@@ -491,14 +598,14 @@ bool find_yaw(ArcNode* nodes_new, ArcNode* nodes_old, Point2D& pos,float& angle,
         #endif
         float error_angle=0; 
       
-        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,5); 
+        Point2D error= sum_difference(nodes_new,nodes_old, pos,angle,error_angle,1.57,total_residual,heading,5); 
          
        
         angle = PIDUpdate(&pid_rotate,-error_angle,angle); 
         pos.Y = PIDUpdate(&pid_rotate_translate,-error.Y,pos.Y); 
         pos.X = PIDUpdate(&pid_rotate_translate,-error.X,pos.X); 
      
-        serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
+       // serialPrintf2("guess_x: %.6f,guess_y: %.6f,  error_x: %.6f,error_y: %.6f, error_angle: %.6f, angle: %.6f",pos.X,pos.Y,error.X,error.Y,error_angle,angle);
        
          if(fabs(error.X) < pid_rotate_translate.deadband && fabs(error.Y) < pid_rotate_translate.deadband && fabs(error_angle) < 0.0002 )
         {
@@ -542,7 +649,7 @@ float read_scan(
 
     for (int i = 0; i < nodeCount; ++i)
     {
-       // serialPrintf2("quality:%i angle:%i dist:%i",nodes[i].quality,nodes[i].angle_z_q6,nodes[i].dist_mm_q2);
+        //serialPrintf2("quality:%i angle:%i dist:%i",nodes[i].quality,nodes[i].angle_z_q6,nodes[i].dist_mm_q2);
         // Continuous angle from LiDAR
         float angle = (nodes[i].angle_z_q6 / 128.0f) * M_PI_F / 180.0f;
         while (angle >= M_2PI) angle -= M_2PI;

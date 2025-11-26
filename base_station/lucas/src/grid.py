@@ -9,6 +9,7 @@ Usage:
 """
 
 import argparse
+import csv
 import ctypes
 from io import BufferedIOBase
 import struct
@@ -18,7 +19,6 @@ import pygame
 from Sample import Sample
 import sarah
 from sarah import  SarahState,sarah_inst
-from server import start_server, data_queue
 from environment_display import SCREEN_SIZE, draw_lidar_pixels, update
 
 RES = 25 #mm
@@ -33,6 +33,28 @@ class Grid():
     def setup_grid(self):
         
         self.data = np.empty((WIDTH, WIDTH), dtype=object)
+        
+    def print_samples_csv(self,samples, filename=None):
+        """
+        Prints or saves all Sample objects in self.data to CSV.
+        Each line will be: x,y
+        """
+        rows = []
+        for sample in samples:
+                
+                if sample is not None:
+                    rows.append([sample.x, sample.y])
+
+        if filename:
+            with open(filename, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['x','y'])  # header
+                writer.writerows(rows)
+            print(f"Saved {len(rows)} samples to {filename}")
+        else:
+            print('x,y')
+            for row in rows:
+                print(f"{row[0]},{row[1]}")
         
     def reinforce(self,samples:list[Sample],x,y,rot):
         for sample in samples:
@@ -62,13 +84,13 @@ class Grid():
             yi = int(np.round(ty / RES) + WIDTH /2)
             if self.data[xi,yi] is None:
                 self.data[xi,yi] = GridCell()
-            self.data[xi,yi].occupancy = self.data[xi,yi].occupancy + confidence
+            self.data[xi,yi].occupancy = self.data[xi,yi].occupancy + confidence*2
             
         def ocUpdate(cell):
             if cell is not None:
-                if cell.occupancy <= confidence:#looks like a single hit, probably noise, rub it out
+                if cell.occupancy <= confidence*2:#looks like a single hit, probably noise, rub it out
                     cell.occupancy = 0
-                cell.occupancy = max(0,cell.occupancy / 2)
+                #cell.occupancy = max(0,cell.occupancy / 2)
         vecFn = np.vectorize(ocUpdate)
         vecFn(self.data)
             
